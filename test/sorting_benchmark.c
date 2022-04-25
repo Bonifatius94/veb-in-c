@@ -4,7 +4,7 @@
 #include <assert.h>
 #include "vebtrees.h"
 
-int sort_veb(const VebKey keys[], size_t num_keys, VebKey output[])
+int sort_veb(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
@@ -20,9 +20,9 @@ int sort_veb(const VebKey keys[], size_t num_keys, VebKey output[])
     vebtree_free(tree);
 }
 
-void linear_shuffle(VebKey keys[], size_t num_keys)
+void linear_shuffle(uint64_t keys[], size_t num_keys)
 {
-    size_t i, j; VebKey temp;
+    size_t i, j; uint64_t temp;
 
     for (i = 0; i < num_keys-1; i++) {
         j = rand() % (num_keys - i) + i;
@@ -38,7 +38,7 @@ void linear_shuffle(VebKey keys[], size_t num_keys)
 int main(int argc, char** argv)
 {
     size_t i, num_keys = 65536;
-    VebKey keys[num_keys], sorted_keys[num_keys];
+    uint64_t keys[num_keys], sorted_keys[num_keys];
 
     srand(42);
     for (i = 0; i < num_keys; i++)
