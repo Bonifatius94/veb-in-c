@@ -10,24 +10,6 @@
 #define vebtree_global_address(key, local_bits) ((key) >> (local_bits))
 #define vebtree_new_empty_node(uni_bits) (VebTree){(uni_bits), vebtree_null, vebtree_null, NULL, NULL}
 
-bool vebtree_is_empty(VebTree* tree)
-{
-    /* TODO: think of converting this into a makro */
-    return tree->low == vebtree_null;
-}
-
-vebkey_t vebtree_get_min(VebTree* tree)
-{
-    /* TODO: think of converting this into a makro */
-    return tree->low;
-}
-
-vebkey_t vebtree_get_max(VebTree* tree)
-{
-    /* TODO: think of converting this into a makro */
-    return tree->high;
-}
-
 uint8_t log_2(uint8_t value)
 {
     /* info: don't worry about performance,
@@ -246,13 +228,14 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key)
 
 /* info: use the leaf's "low" attribute as bitboard */
 
-// void vebtree_init_bitwise_leaf(VebTree** tree, uint8_t universe_bits, bool is_lazy);
-// void vebtree_free_bitwise_leaf(VebTree* tree);
+#define trailing_bits_mask(num_bits) (((bitboard_t)1 << (num_bits)) - 1)
+#define leading_bits_mask(num_bits) (((bitboard_t)0xFFFFFFFFFFFFFFFF << (num_bits)))
+#define u64_log2(x) (63 - leading_zeros((x)))
 
 bool vebtree_bitwise_leaf_contains_key(VebTree* tree, vebkey_t key)
 {
     assert(key < 64);
-    return (((uint64_t)1 << key) & tree->low) > 0;
+    return (((bitboard_t)1 << key) & tree->low) > 0;
 }
 
 bool vebtree_bitwise_leaf_is_empty(VebTree* tree)
@@ -262,35 +245,38 @@ bool vebtree_bitwise_leaf_is_empty(VebTree* tree)
 
 vebkey_t vebtree_bitwise_leaf_get_min(VebTree* tree)
 {
-    /* TODO: add bitwise implementation */
+    return trailing_zeros(tree->low);
 }
 
 vebkey_t vebtree_bitwise_leaf_get_max(VebTree* tree)
 {
-    /* TODO: add bitwise implementation */
+    return u64_log2(tree->low);
 }
 
 vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 {
-    /* TODO: add bitwise implementation */
+    uint64_t succBits, minSucc;
+    succBits = tree->low & leading_bits_mask((uint8_t)key + 1);
+    minSucc = trailing_zeros(succBits);
+    return (minSucc == 0 || succBits == 0) ? vebtree_null : minSucc;
 }
 
 vebkey_t vebtree_bitwise_leaf_predecessor(VebTree* tree, vebkey_t key)
 {
-    /* TODO: add bitwise implementation */
+    uint64_t pred_bits, max_pred;
+    pred_bits = tree->low & trailing_bits_mask((uint8_t)key);
+    max_pred = u64_log2(pred_bits);
+    return (max_pred == 0 && (tree->low & 1) == 0) ? vebtree_null : max_pred;
 }
 
 void vebtree_bitwise_leaf_insert_key(VebTree* tree, vebkey_t key)
 {
     assert(key < 64);
-    tree->low |= (uint64_t)1 << key;
+    tree->low |= (bitboard_t)1 << key;
 }
-
-#define trailing_bits_mask(num_bits) (((uint64_t)1 << (num_bits)) - 1)
-#define leading_bits_mask(num_bits) (((uint64_t)1 << (num_bits)) - 1)
 
 void vebtree_bitwise_leaf_delete_key(VebTree* tree, vebkey_t key)
 {
     assert(key < 64);
-    tree->low &= trailing_bits_mask(tree->universe_bits) - ((uint64_t)1 << key);
+    tree->low &= ~((bitboard_t)1 << key);
 }
