@@ -196,12 +196,13 @@ void vebtree_delete_key(VebTree* tree, VebKey key)
     /* base case with universe size 2 -> flip the bit */
     if (tree->universe_bits == 1) { tree->low = tree->high = 1 - key; return; }
 
+    lower_bits = LOWER_BITS(tree->universe_bits);
+
     /* case when deleting the low element -> new low needs to be pulled out */
     if (key == tree->low)
         tree->low = key = (tree->global->low << lower_bits)
             | tree->locals[tree->global->low].low;
 
-    lower_bits = LOWER_BITS(tree->universe_bits);
     global_key = GLOBAL_ADRESS(key, lower_bits);
     local_key = LOCAL_ADRESS(key, lower_bits);
 
