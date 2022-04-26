@@ -10,16 +10,6 @@
 #define vebtree_global_address(key, local_bits) ((key) >> (local_bits))
 #define vebtree_new_empty_node(uni_bits) (VebTree){(uni_bits), vebtree_null, vebtree_null, NULL, NULL}
 
-uint8_t log_2(uint8_t value)
-{
-    /* info: don't worry about performance,
-       this is only called once at tree creation */
-
-    uint8_t i = 7;
-    while (i > 0 && value & (1 << i--) == 0) {}
-    return i;
-}
-
 void _init_subtrees(VebTree* tree, bool is_lazy);
 void _vebtree_init(VebTree* tree, uint8_t universe_bits, bool is_lazy);
 
@@ -30,7 +20,7 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, bool is_lazy);
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, bool is_lazy)
 {
     assert((universe_bits > 0 && universe_bits <= 64) 
-        && "invalid amount of universe bits");
+        && "invalid amount of universe bits, needs to be within [1, 64].");
 
     /* allocate memory for the first tree */
     *new_tree = (VebTree*)malloc(sizeof(VebTree));
@@ -255,15 +245,17 @@ vebkey_t vebtree_bitwise_leaf_get_max(VebTree* tree)
 
 vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 {
-    uint64_t succBits, minSucc;
-    succBits = tree->low & leading_bits_mask((uint8_t)key + 1);
-    minSucc = trailing_zeros(succBits);
-    return (minSucc == 0 || succBits == 0) ? vebtree_null : minSucc;
+    uint64_t succ_bits, min_succ;
+    assert(key < 64);
+    succ_bits = tree->low & leading_bits_mask((uint8_t)key + 1);
+    min_succ = trailing_zeros(succ_bits);
+    return (min_succ == 0 || succ_bits == 0) ? vebtree_null : min_succ;
 }
 
 vebkey_t vebtree_bitwise_leaf_predecessor(VebTree* tree, vebkey_t key)
 {
     uint64_t pred_bits, max_pred;
+    assert(key < 64);
     pred_bits = tree->low & trailing_bits_mask((uint8_t)key);
     max_pred = u64_log2(pred_bits);
     return (max_pred == 0 && (tree->low & 1) == 0) ? vebtree_null : max_pred;

@@ -56,6 +56,8 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key);
 
 #else /* fallback implementations for other systems / compilers */
 
+/* TODO: fallback doesn't compile, figure out why and fix this */
+
 int tab64[64] = {
     63,  0, 58,  1, 59, 47, 53,  2,
     60, 39, 48, 27, 54, 33, 42,  3,
