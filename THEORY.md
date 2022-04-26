@@ -30,7 +30,7 @@ O(u) bits with improvements. For example let u = 2^64, then the memory
 consumption would be in exabyte range.
 
 So, allocating a full van Emde Boas tree of u = 2^64 is pretty much
-unfeasible without, even with giant machines. Therefore we'll make some 
+unfeasible even with giant machines. Therefore we'll make some 
 improvements to the data structure later. But first, let's dive
 into the core ideas of van Emde Boas trees.
 
@@ -77,7 +77,7 @@ yield the time complexity of O(log log u).
 ### Memory Allocation
 Maybe we did agree a bit too fast on the performance of the insert()
 operation, though because the allocation of the locals array when 
-creating needs a new tree node to be considered as well.
+creating a new tree node needs to be considered as well.
 As there are sqrt(u) locals in the tree node, an allocation
 would take O(sqrt(u)) time, ruining our performance once again.
 So, the van Emde Boas tree needs to be fully allocated upfront
