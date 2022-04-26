@@ -11,12 +11,16 @@ typedef uint64_t vebkey_t;
 
 typedef uint64_t bitboard_t;
 
+#define VEBTREE_FLAG_LEAF 1
+#define VEBTREE_FLAG_LAZY 2
+#define VEBTREE_DEFAULT_FLAGS 0
+/* TODO: enable lazy mode once the implementation is ready */
+
 typedef struct _VEB_TREE_NODE {
-    // TODO: replace universe bits with lower / upper bits
     uint8_t universe_bits;
-    // uint8_t lower_bits;
-    // uint8_t upper_bits;
-    // uint8_t flags;
+    uint8_t lower_bits;
+    uint8_t upper_bits;
+    uint8_t flags;
     vebkey_t low;
     vebkey_t high;
     struct _VEB_TREE_NODE* global;
@@ -27,7 +31,7 @@ typedef struct _VEB_TREE_NODE {
 #define vebtree_get_min(tree) ((tree)->low)
 #define vebtree_get_max(tree) ((tree)->high)
 
-void vebtree_init(VebTree** tree, uint8_t universe_bits, bool is_lazy);
+void vebtree_init(VebTree** tree, uint8_t universe_bits, uint8_t flags);
 
 void vebtree_free(VebTree* tree);
 

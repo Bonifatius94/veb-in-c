@@ -8,7 +8,7 @@ int sort_veb(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
-    vebtree_init(&tree, 16, false);
+    vebtree_init(&tree, 16, VEBTREE_DEFAULT_FLAGS);
 
     for (i = 0; i < num_keys; i++)
         vebtree_insert_key(tree, keys[i]);

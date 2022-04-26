@@ -20,7 +20,7 @@ void assert_empty_fully_alloc_u4(VebTree* tree)
 void should_create_fully_alloc_tree_u16()
 {
     VebTree* tree; size_t i;
-    vebtree_init(&tree, 4, false);
+    vebtree_init(&tree, 4, 0);
 
     assert(vebtree_is_empty(tree));
     assert(tree->universe_bits == 4 && tree->global != NULL && tree->locals != NULL);
@@ -38,7 +38,7 @@ void should_create_fully_alloc_tree_u16()
 void should_insert_into_fully_alloc_tree_u256()
 {
     size_t i; VebTree* tree;
-    vebtree_init(&tree, 8, false);
+    vebtree_init(&tree, 8, 0);
     assert(vebtree_is_empty(tree));
 
     for (i = 0; i < 256; i++) {
@@ -58,7 +58,7 @@ void should_insert_into_fully_alloc_tree_u256()
 void should_delete_from_fully_alloc_tree_u256()
 {
     size_t i; VebTree* tree;
-    vebtree_init(&tree, 8, false);
+    vebtree_init(&tree, 8, 0);
     assert(vebtree_is_empty(tree));
 
     for (i = 0; i < 256; i++) {
