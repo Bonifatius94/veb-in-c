@@ -45,6 +45,9 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key);
 
 void vebtree_delete_key(VebTree* tree, vebkey_t key);
 
+#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
+#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
+
 /* TODO: test intrinsics for other systems / compilers */
 
 /* use intrinsic processor operations for leading / trailing bits count */

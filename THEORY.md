@@ -6,10 +6,12 @@ This document provides information on the van Emde Boas tree
 data structure and some common improvements to make it feasible.
 
 ## Purpose of Veb Trees
-The van Emde Boas tree data structure serves as a **priority queue**
-(the term 'tree' is a bit misleading). It supports all typical
-priority queue operations in O(log log u) time which is
-*almost constant*, e.g. u = 2^64 -> log_2 log_2 2^64 = log_2 64 = 6.
+Van Emde Boas trees serve as a very fast **priority queue** (the term
+'tree' is a bit misleading). The special thing about this structure
+is that it scales with the key space (called *universe u*) instead of
+the amount of keys inserted. All typical priority queue operations
+are supported in O(log log u) time which is *almost constant*,
+e.g. u = 2^64 -> log_2 log_2 2^64 = log_2 64 = 6.
 
 | Operation   | Time Complexity |
 | ----------- | --------------- |
@@ -91,20 +93,22 @@ to the van Emde Boas tree.
 
 ### Bitwise Tree Leafs
 Managing small universes with the naive approach can become quite
-inefficient. For managing universes of size u = 64, this cascades into
-33 sub-structures managing 32 keys, each of them once again cascading to
-17 sub-structures, and so on. So there's plenty of memory consumption.
+inefficient. For managing universes of size u = 64, this cascades down to
+33 sub-structures managing 6 keys, each of them once again cascading down
+to 4 sub-structures, etc. So there's plenty of memory consumption.
 
-Gladly, 64-bit bitboards can serve all tree operations in O(1) time,
-so nodes managing less than 64 keys can be replaced by a bitboard leaf.
-This reduces the memory consumption already by a lot.
+Gladly, 64-bit bitboards can serve all tree operations in O(1) time
+due to bitscan intrinsics, so nodes managing less or equal than 64 keys
+can be safely replaced by a bitboard leaf. This make the lower tree
+layers way less fuzzy and reduces the memory consumption by a lot.
 
-## Memory Efficient Root
+### Memory Efficient Root
 Next, we'll make use of the global / local pattern, but adjust the
 data distribution between global and local structures such that each
 local only manages log_2(u) keys. Moreover, the locals are implemented
 as binary search trees / bitboards, still yielding a performance of
-O(log log u) because of only managing log_2(u) keys. As a consequence, the global structure manages u / log_2(u) keys (as a van Emde Boas
+O(log log u) because of only managing log_2(u) keys. As a consequence,
+the global structure manages u / log_2(u) keys (as a van Emde Boas
 tree), still providing the desired time complexity of O(log log u).
 
 Combining the memory consumption of global and locals, we see that
@@ -116,7 +120,7 @@ So both parts of the tree are now within O(u) bits of memory.
 there's no requirement to implement binary search tree due to
 locals only managing 64 keys or less, so bitwise leafs suffice.*
 
-## Lazy Allocation
+### Lazy Allocation
 Even with great achievements in saving memory to fit a van Emde Boas 
 tree into O(u) bits, it's still not feasible to fully allocate the tree 
 upfront (exabyte range, see introduction). This is where lazy 

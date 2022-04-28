@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.9.4)
 project(vebtrees LANGUAGES C)
 
+# only enable this when VSCode debugging fails
+# set(CMAKE_BUILD_TYPE Debug)
+
 file(GLOB sources "src/*.c")
 add_library(vebtrees ${sources})
 target_include_directories(vebtrees PRIVATE include)
