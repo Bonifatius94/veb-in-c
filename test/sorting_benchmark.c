@@ -77,7 +77,7 @@ int main(int argc, char** argv)
     }
 
     elapsed /= test_runs;
-    printf("Sorting took %lf milliseconds", elapsed / 1000);
+    printf("Sorting took %lf milliseconds\n", elapsed * 1000);
 
     /* sort keys using insert() / max() / predecessor() operations */
     // sort_veb_pred(keys, num_keys, sorted_keys);
