@@ -168,15 +168,15 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
     global_key = vebtree_global_address(key, tree->lower_bits);
 
     /* case where a local contains the successor */
-    if (tree->locals[global_key].high != vebtree_null &&
-            local_key < tree->locals[global_key].high)
+    if (vebtree_get_max(&(tree->locals[global_key])) != vebtree_null &&
+            local_key < vebtree_get_max(&(tree->locals[global_key])))
         return (global_key << tree->lower_bits) | 
             (vebtree_successor(&(tree->locals[global_key]), local_key));
 
     /* case where a neighbour contains the successor */
     global_succ = vebtree_successor(tree->global, global_key);
     return global_succ == vebtree_null ? vebtree_null
-        : (global_succ << tree->lower_bits) | tree->locals[global_succ].low;
+        : (global_succ << tree->lower_bits) | vebtree_get_min(&(tree->locals[global_succ]));
 }
 
 vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
