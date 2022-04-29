@@ -4,12 +4,11 @@
 #include <assert.h>
 #include "vebtrees.h"
 
-int sort_veb(const VebKey keys[], size_t num_keys, VebKey output[])
+int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
-    vebtree_init(&tree, 16, false);
-
+    vebtree_init(&tree, 16, VEBTREE_DEFAULT_FLAGS);
     for (i = 0; i < num_keys; i++)
         vebtree_insert_key(tree, keys[i]);
 
@@ -20,9 +19,24 @@ int sort_veb(const VebKey keys[], size_t num_keys, VebKey output[])
     vebtree_free(tree);
 }
 
-void linear_shuffle(VebKey keys[], size_t num_keys)
+int sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
-    size_t i, j; VebKey temp;
+    size_t i; VebTree* tree;
+
+    vebtree_init(&tree, 16, VEBTREE_DEFAULT_FLAGS);
+    for (i = 0; i < num_keys; i++)
+        vebtree_insert_key(tree, keys[i]);
+
+    output[num_keys-1] = vebtree_get_max(tree);
+    for (i = num_keys-2; i > 0; i--)
+        output[i] = vebtree_predecessor(tree, output[i+1]);
+
+    vebtree_free(tree);
+}
+
+void linear_shuffle(uint64_t keys[], size_t num_keys)
+{
+    size_t i, j; uint64_t temp;
 
     for (i = 0; i < num_keys-1; i++) {
         j = rand() % (num_keys - i) + i;
@@ -38,16 +52,24 @@ void linear_shuffle(VebKey keys[], size_t num_keys)
 int main(int argc, char** argv)
 {
     size_t i, num_keys = 65536;
-    VebKey keys[num_keys], sorted_keys[num_keys];
+    uint64_t keys[num_keys], sorted_keys[num_keys];
 
+    /* generate random distributed array of keys */
     srand(42);
     for (i = 0; i < num_keys; i++)
         keys[i] = i;
     linear_shuffle(keys, num_keys);
 
-    sort_veb(keys, num_keys, sorted_keys);
+    /* sort keys using insert() / min() / successor() operations */
+    sort_veb_succ(keys, num_keys, sorted_keys);
     for (i = 0; i < num_keys-1; i++)
         assert(sorted_keys[i] < sorted_keys[i+1]);
+
+    /* sort keys using insert() / max() / predecessor() operations */
+    // sort_veb_pred(keys, num_keys, sorted_keys);
+    // for (i = 0; i < num_keys-1; i++)
+    //     assert(sorted_keys[i] < sorted_keys[i+1]);
+    // TODO: enable this test when the predecessor operation is ready for use
 
     return 0;
 }
