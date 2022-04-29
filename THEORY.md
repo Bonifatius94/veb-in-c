@@ -63,18 +63,25 @@ is very efficient in O(1) time if we keep the pointers up-to-date.
 But this doesn't suffice. The insert() and delete() operations are still
 only O(log u). Traversing a single path from the top to the bottom of
 the entire tree yields our desired time complexity of O(log log u)
-because the tree is only O(log u) layer high,
-but there might be cascading insertions / deletions, so an operation
-could explore various paths, ruining the performance.
+because the tree is only O(log u) layer high and there are always
+O(sqrt(u)) child nodes. The only problem is that we don't know
+which paths of the tree to take, so there might be cascading insertions /
+deletions, ruining the performance.
 
 Now, instead of carrying out an amortized analysis for showing that
 it's not too bad anyways (like in the Fibonacci heap structure),
-Peter van mde Boas came up with another brilliant idea. He excluded the
+Peter van Emde Boas came up with another brilliant idea. He excluded the
 data stored in the low pointer from the tree. This little trick
 guaruntees that there are no cascading insertions / deletions because
 the low pointer is not part of the tree and therefore doesn't cause any 
 recursive operation calls. That way, insert() and delete() also
 yield the time complexity of O(log log u).
+
+*Note: When inserting into an empty structure, we put the first key
+into the low pointer, so recursion stops right there. And when a subtree
+becomes empty, the parent tree has to contain at least the key stored
+in low pointer which is not part of any subtree, so it's impossible for
+various parent trees to become empty cascadingly.*
 
 ### Memory Allocation
 Maybe we did agree a bit too fast on the performance of the insert()
@@ -84,7 +91,7 @@ As there are sqrt(u) locals in the tree node, an allocation
 would take O(sqrt(u)) time, ruining our performance once again.
 So, the van Emde Boas tree needs to be fully allocated upfront
 in O(u) time, requiring O(u log u) bits of memory. Of course
-those memory hunger needs to be addressed to make the van Emde Boas
+this memory hunger needs to be addressed to make the van Emde Boas
 tree feasible, which we'll see in the following sections.
 
 ## Improvements
@@ -126,4 +133,13 @@ tree into O(u) bits, it's still not feasible to fully allocate the tree
 upfront (exabyte range, see introduction). This is where lazy 
 allocation comes into play.
 
+As we already know, insertions / deletions of a new tree node will
+always terminate recursion, so we max. insert / delete a single node
+per operation.
 
+### Fast Successor() / Predecessor()
+- use a linked list structure storing the keys in order
+- speed up the key search by a dictionary storing (key, entry pointer) tuples
+- make the linked list bidirectional, so predecessor() / successor() are O(1)
+
+### Elastic Key Space
