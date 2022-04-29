@@ -4,11 +4,6 @@ project(vebtrees LANGUAGES C)
 # only enable this when VSCode debugging fails
 # set(CMAKE_BUILD_TYPE Debug)
 
-file(GLOB sources "src/*.c")
-add_library(vebtrees ${sources})
-target_include_directories(vebtrees PRIVATE include)
-set_property(TARGET vebtrees PROPERTY C_STANDARD 90)
-
 add_subdirectory(test)
 enable_testing()
 add_test(NAME UnitTests COMMAND UnitTests)
