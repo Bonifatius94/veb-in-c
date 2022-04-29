@@ -27,12 +27,8 @@ Run the build script. This also executes a bunch of unit tests and benchmarks.
 ```
 
 ## Deployment into Projects
-
-1) Copy the file contents from [vebtrees.h](./include/vebtrees.h) and [vebtrees.c](./src/vebtrees.c)
-2) Paste the contents into a new header file (e.g. name it vebtrees.h)
-3) Put this header file into your project's include folder (no further dependencies required)
-
-TODO: create a deployment mechanism that does the copying for a source distro header file including the implementation details
+Just copy the [vebtrees.h](./include/vebtrees.h) file from the include directory
+and drop it into your project's include directory (single-header deployment).
 
 ## License
 This project is available under the terms of the MIT license.
