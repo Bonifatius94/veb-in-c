@@ -50,8 +50,6 @@ void should_insert_into_fully_alloc_tree_u4096()
 
 void should_delete_from_fully_alloc_tree_u4096()
 {
-    /* TODO: fix this unit test to work for bitwise tree leafs */
-
     size_t i; VebTree* tree;
     vebtree_init(&tree, 12, 0);
     assert(vebtree_is_empty(tree));

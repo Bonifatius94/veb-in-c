@@ -1,16 +1,17 @@
 #include "vebtrees.h"
 
-#define math_max(v1, v2) (((v1) >= (v2)) ? (v1) : (v2))
-
+/* TODO: remove those makros, copy the code to the location of usage */
 #define vebtree_lower_bits(uni_bits) ((uni_bits) >> 1) /* div by 2 */
 #define vebtree_upper_bits(uni_bits) ((uni_bits) - vebtree_lower_bits(uni_bits))
-#define vebtree_local_max(uni_bits) ((vebkey_t)1 << vebtree_lower_bits(uni_bits))
-#define vebtree_global_max(uni_bits) ((vebkey_t)1 << vebtree_upper_bits(uni_bits))
+
+#define vebtree_universe_maxvalue(uni_bits) ((vebkey_t)1 << vebtree_upper_bits(uni_bits))
 #define vebtree_local_address(key, local_bits) ((((vebkey_t)1 << (local_bits)) - 1) & (key))
 #define vebtree_global_address(key, local_bits) ((key) >> (local_bits))
+
 #define vebtree_new_empty_node(uni_bits, lower_bits, flags) (VebTree){\
     (uni_bits), (lower_bits), (uni_bits) - (lower_bits), (flags),\
     vebtree_null, vebtree_null, NULL, NULL}
+
 #define vebtree_new_empty_bitwise_leaf(uni_bits) (VebTree){\
     (uni_bits), 0, 0, 0, 0, vebtree_null, NULL, NULL}
 
@@ -25,22 +26,6 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags);
 
 #define trailing_bits_mask(num_bits) (((bitboard_t)1 << (num_bits)) - 1)
 #define leading_bits_mask(num_bits) (((bitboard_t)0xFFFFFFFFFFFFFFFF << (num_bits)))
-#define u64_log2(x) (63 - leading_zeros((x)))
-
-bool vebtree_bitwise_leaf_contains_key(VebTree* tree, vebkey_t key)
-{
-    return (((bitboard_t)1 << key) & tree->low) > 0;
-}
-
-vebkey_t vebtree_bitwise_leaf_get_min(VebTree* tree)
-{
-    return trailing_zeros(tree->low);
-}
-
-vebkey_t vebtree_bitwise_leaf_get_max(VebTree* tree)
-{
-    return u64_log2(tree->low);
-}
 
 vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 {
@@ -54,7 +39,7 @@ vebkey_t vebtree_bitwise_leaf_predecessor(VebTree* tree, vebkey_t key)
 {
     uint64_t pred_bits, max_pred;
     pred_bits = tree->low & trailing_bits_mask((uint8_t)key);
-    max_pred = u64_log2(pred_bits);
+    max_pred = max_bit_set(pred_bits);
     return (max_pred == 0 && (tree->low & 1) == 0) ? vebtree_null : max_pred;
 }
 
@@ -113,7 +98,7 @@ void vebtree_free(VebTree* tree)
 
     /* recursion case for child trees */
     vebtree_free(tree->global);
-    num_locals = vebtree_global_max(tree->universe_bits);
+    num_locals = vebtree_universe_maxvalue(tree->universe_bits);
     for (i = 0; i < num_locals; i++)
         vebtree_free(&(tree->locals[i]));
 
@@ -129,7 +114,7 @@ void _init_subtrees(VebTree* tree, uint8_t flags)
     size_t i, num_locals; VebTree* temp;
 
     /* determine the sizes of global / locals */
-    num_locals = vebtree_global_max(tree->universe_bits);
+    num_locals = vebtree_universe_maxvalue(tree->universe_bits);
 
     /* init global recursively */
     tree->global = (VebTree*)malloc(sizeof(VebTree));
@@ -225,12 +210,12 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key)
     vebtree_insert_key(&(tree->locals[global_key]), local_key);
 
     /* update the tree's high */
-    tree->high = math_max(tree->high, key);
+    tree->high = tree->high > key ? tree->high : key;
 }
 
 void vebtree_delete_key(VebTree* tree, vebkey_t key)
 {
-    uint8_t lower_bits; vebkey_t global_key, local_key, global_high;
+    vebkey_t global_key, local_key, global_high, global_low;
     assert(key != vebtree_null && "cannot delete vebtree_null, invalid key!");
 
     /* base case for tree leafs */
@@ -239,34 +224,26 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key)
     /* base case with only one element -> set low and high to null */
     if (tree->low == tree->high) { tree->low = tree->high = vebtree_null; return; }
 
-    /* base case with universe size 2 -> flip the bit */
-    if (tree->universe_bits == 1) { tree->low = tree->high = 1 - key; return; }
-
-    lower_bits = vebtree_lower_bits(tree->universe_bits);
-
     /* case when deleting the low element -> new low needs to be pulled out */
-    if (key == tree->low)
-        tree->low = key = (tree->global->low << lower_bits)
-            | tree->locals[tree->global->low].low;
+    if (key == tree->low) {
+        global_low = vebtree_get_min(tree->global);
+        tree->low = key = (global_low << tree->lower_bits)
+            | vebtree_get_min(&(tree->locals[global_low]));
+    }
 
-    global_key = vebtree_global_address(key, lower_bits);
-    local_key = vebtree_local_address(key, lower_bits);
+    global_key = vebtree_global_address(key, tree->lower_bits);
+    local_key = vebtree_local_address(key, tree->lower_bits);
 
     /* delete the local key recursively */
     vebtree_delete_key(&(tree->locals[global_key]), local_key);
 
     if (vebtree_is_empty(&(tree->locals[global_key])))
-    {
         vebtree_delete_key(tree->global, global_key);
 
-        /* in case the maximum was deleted */
-        if (key == tree->high) {
-            global_high = tree->global->high;
-            tree->high = global_high == vebtree_null ? tree->low
-                : (global_high << lower_bits) | tree->locals[global_high].high;
-        }
-
-    /* if the maximum was deleted, but the tree was not empty */
-    } else if (key == tree->high)
-        tree->high = (global_key << lower_bits) | tree->locals[global_key].high;
+    /* in case the maximum was deleted -> find new maximum */
+    if (key == tree->high) {
+        global_high = vebtree_get_max(tree->global);
+        tree->high = global_high == vebtree_null ? tree->low
+            : (global_high << tree->lower_bits) | vebtree_get_max(&(tree->locals[global_high]));
+    }
 }
