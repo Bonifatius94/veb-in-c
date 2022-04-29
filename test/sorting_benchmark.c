@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <time.h>
 #include "vebtrees.h"
 
 int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
@@ -52,7 +53,8 @@ void linear_shuffle(uint64_t keys[], size_t num_keys)
 int main(int argc, char** argv)
 {
     size_t i, num_keys = 500000;
-    uint64_t keys[num_keys], sorted_keys[num_keys];
+    uint64_t keys[500000], sorted_keys[500000];
+    clock_t start, end; double elapsed;
 
     /* generate random distributed array of keys */
     srand(42);
@@ -61,9 +63,14 @@ int main(int argc, char** argv)
     linear_shuffle(keys, num_keys);
 
     /* sort keys using insert() / min() / successor() operations */
+    start = clock();
     sort_veb_succ(keys, num_keys, sorted_keys);
+    end = clock();
     for (i = 0; i < num_keys-1; i++)
         assert(sorted_keys[i] < sorted_keys[i+1]);
+
+    elapsed = (double)(end - start) / CLOCKS_PER_SEC;
+    printf("Sorting took %f milliseconds", elapsed / 1000);
 
     /* sort keys using insert() / max() / predecessor() operations */
     // sort_veb_pred(keys, num_keys, sorted_keys);
