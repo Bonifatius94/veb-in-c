@@ -27,7 +27,12 @@ typedef struct _VEB_TREE_NODE {
     struct _VEB_TREE_NODE* locals;
 } VebTree;
 
-#define vebtree_is_empty(tree) ((tree)->low == vebtree_null)
+#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
+#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
+#define vebtree_bitwise_leaf_is_empty(tree) ((tree)->low == 0)
+
+#define vebtree_is_empty(tree) (vebtree_is_leaf(tree) \
+    ? vebtree_bitwise_leaf_is_empty(tree) : (tree)->low == vebtree_null)
 #define vebtree_get_min(tree) ((tree)->low)
 #define vebtree_get_max(tree) ((tree)->high)
 
@@ -44,9 +49,6 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key);
 void vebtree_insert_key(VebTree* tree, vebkey_t key);
 
 void vebtree_delete_key(VebTree* tree, vebkey_t key);
-
-#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
-#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
 
 /* TODO: test intrinsics for other systems / compilers */
 

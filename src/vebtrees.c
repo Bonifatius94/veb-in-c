@@ -32,11 +32,6 @@ bool vebtree_bitwise_leaf_contains_key(VebTree* tree, vebkey_t key)
     return (((bitboard_t)1 << key) & tree->low) > 0;
 }
 
-bool vebtree_bitwise_leaf_is_empty(VebTree* tree)
-{
-    return tree->low == 0;
-}
-
 vebkey_t vebtree_bitwise_leaf_get_min(VebTree* tree)
 {
     return trailing_zeros(tree->low);
