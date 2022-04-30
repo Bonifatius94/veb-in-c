@@ -34,14 +34,6 @@ typedef uint64_t vebkey_t;
 
 typedef uint64_t bitboard_t;
 
-#define VEBTREE_FLAG_LEAF 1
-#define VEBTREE_FLAG_LAZY 2
-#define VEBTREE_DEFAULT_FLAGS 0
-/* TODO: enable lazy mode once the implementation is ready */
-
-#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
-#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
-
 /**
  * @brief Van Emde Boas tree structure representing a tree with its
  * local child nodes, global registry and high / low pointers.
@@ -118,6 +110,16 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key);
  */
 void vebtree_delete_key(VebTree* tree, vebkey_t key);
 
+#ifndef DOXYGEN_SKIP
+
+#define VEBTREE_FLAG_LEAF 1
+#define VEBTREE_FLAG_LAZY 2
+#define VEBTREE_DEFAULT_FLAGS 0
+/* TODO: enable lazy mode once the implementation is ready */
+
+#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
+#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
+
 /* use intrinsic processor operations for computing the leading / trailing zero bit count */
 #ifdef __GNUC__ /* GCC intrinsics for Linux / Mac */
 
@@ -167,41 +169,10 @@ int trailing_zeros(bitboard_t bits)
 #define vebtree_bitwise_leaf_get_min(tree) (min_bit_set((tree)->low))
 #define vebtree_bitwise_leaf_get_max(tree) (max_bit_set((tree)->low))
 
-/**
- * @brief Indicates whether a tree structure is empty.
- * 
- * @param tree the tree to be searched whether it's empty
- * @return true if the tree structure is empty
- * @return false if the tree structure contains keys
- */
-#define vebtree_is_empty(tree) (vebtree_is_leaf(tree) \
-    ? vebtree_bitwise_leaf_is_empty(tree) : (tree)->low == vebtree_null)
-
 #define vebtree_get_min_nonempty(tree) (vebtree_is_leaf(tree) \
     ? vebtree_bitwise_leaf_get_min(tree) : (tree)->low)
 #define vebtree_get_max_nonempty(tree) (vebtree_is_leaf(tree) \
     ? vebtree_bitwise_leaf_get_max(tree) : (tree)->high)
-
-/**
- * @brief Retrieves the smallest key inserted into the structure.
- * 
- * @param tree the tree to be searched for the smallest key
- * @return the smallest key inserted or vebtree_null if the tree is empty
- */
-#define vebtree_get_min(tree) (vebtree_is_empty(tree) \
-    ? vebtree_null : vebtree_get_min_nonempty(tree))
-
-/**
- * @brief Retrieves the greatest key inserted into the structure.
- * 
- * @param tree the tree to be searched for the greatest key
- * @return the greatest key inserted or vebtree_null if the tree is empty
- */
-#define vebtree_get_max(tree) (vebtree_is_empty(tree) \
-    ? vebtree_null : vebtree_get_max_nonempty(tree))
-
-
-// IMPLEMENTATION DETAILS
 
 /* TODO: remove those makros, copy the code to the location of usage */
 #define vebtree_lower_bits(uni_bits) ((uni_bits) >> 1) /* div by 2 */
@@ -218,15 +189,6 @@ int trailing_zeros(bitboard_t bits)
 #define vebtree_new_empty_bitwise_leaf(uni_bits) (VebTree){\
     (uni_bits), 0, 0, 0, 0, vebtree_null, NULL, NULL}
 
-void _init_subtrees(VebTree* tree, uint8_t flags);
-void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags);
-
-/***********************************************
- *      B I T W I S E   T R E E   L E A F      *
- ***********************************************/
-
-/* info: use the leaf's "low" attribute as bitboard */
-
 #define trailing_bits_mask(num_bits) (((bitboard_t)1 << (num_bits)) - 1)
 #define leading_bits_mask(num_bits) (((bitboard_t)0xFFFFFFFFFFFFFFFF << (num_bits)))
 
@@ -234,7 +196,7 @@ vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 {
     uint64_t succ_bits, min_succ;
     succ_bits = tree->low & leading_bits_mask((uint8_t)key + 1);
-    min_succ = trailing_zeros(succ_bits);
+    min_succ = min_bit_set(succ_bits);
     return (min_succ == 0 || succ_bits == 0) ? vebtree_null : min_succ;
 }
 
@@ -256,9 +218,38 @@ void vebtree_bitwise_leaf_delete_key(VebTree* tree, vebkey_t key)
     tree->low &= ~((bitboard_t)1 << key);
 }
 
-/***********************************************
- *    C O R E   I M P L E M E N T A T I O N    *
- ***********************************************/
+void _init_subtrees(VebTree* tree, uint8_t flags);
+void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags);
+
+#endif /* DOXYGEN_SKIP */
+
+/**
+ * @brief Indicates whether a tree structure is empty.
+ * 
+ * @param tree the tree to be searched whether it's empty
+ * @return true if the tree structure is empty
+ * @return false if the tree structure contains keys
+ */
+#define vebtree_is_empty(tree) (vebtree_is_leaf(tree) \
+    ? vebtree_bitwise_leaf_is_empty(tree) : (tree)->low == vebtree_null)
+
+/**
+ * @brief Retrieves the smallest key inserted into the structure.
+ * 
+ * @param tree the tree to be searched for the smallest key
+ * @return the smallest key inserted or vebtree_null if the tree is empty
+ */
+#define vebtree_get_min(tree) (vebtree_is_empty(tree) \
+    ? vebtree_null : vebtree_get_min_nonempty(tree))
+
+/**
+ * @brief Retrieves the greatest key inserted into the structure.
+ * 
+ * @param tree the tree to be searched for the greatest key
+ * @return the greatest key inserted or vebtree_null if the tree is empty
+ */
+#define vebtree_get_max(tree) (vebtree_is_empty(tree) \
+    ? vebtree_null : vebtree_get_max_nonempty(tree))
 
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
 {
@@ -268,27 +259,6 @@ void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
     /* allocate memory for the first tree */
     *new_tree = (VebTree*)malloc(sizeof(VebTree));
     _vebtree_init(*new_tree, universe_bits, flags);
-}
-
-void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags)
-{
-    assert((universe_bits > 0 && universe_bits <= 64) 
-        && "invalid amount of universe bits");
-
-    /* init the tree with an empty node */
-    if (universe_bits > 6)
-        *tree = vebtree_new_empty_node(universe_bits, vebtree_lower_bits(universe_bits), flags);
-    else
-        *tree = vebtree_new_empty_bitwise_leaf(universe_bits);
-
-    /* recursion anchor for tree leafs */
-    if (vebtree_is_leaf(tree) || vebtree_is_lazy(tree)) return;
-
-    /* fully allocate the tree recursively */
-    _init_subtrees(tree, flags);
-
-    assert(tree->global != NULL && "global tree init failed!");
-    assert(tree->locals != NULL && "locals tree init failed!");
 }
 
 void vebtree_free(VebTree* tree)
@@ -312,6 +282,29 @@ void vebtree_free(VebTree* tree)
     tree->locals = NULL;
 }
 
+#ifndef DOXYGEN_SKIP
+
+void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags)
+{
+    assert((universe_bits > 0 && universe_bits <= 64) 
+        && "invalid amount of universe bits");
+
+    /* init the tree with an empty node */
+    if (universe_bits > 6)
+        *tree = vebtree_new_empty_node(universe_bits, vebtree_lower_bits(universe_bits), flags);
+    else
+        *tree = vebtree_new_empty_bitwise_leaf(universe_bits);
+
+    /* recursion anchor for tree leafs */
+    if (vebtree_is_leaf(tree) || vebtree_is_lazy(tree)) return;
+
+    /* fully allocate the tree recursively */
+    _init_subtrees(tree, flags);
+
+    assert(tree->global != NULL && "global tree init failed!");
+    assert(tree->locals != NULL && "locals tree init failed!");
+}
+
 void _init_subtrees(VebTree* tree, uint8_t flags)
 {
     size_t i, num_locals; VebTree* temp;
@@ -328,6 +321,8 @@ void _init_subtrees(VebTree* tree, uint8_t flags)
     for (i = 0; i < num_locals; i++)
         _vebtree_init(tree->locals + i, tree->lower_bits, flags);
 }
+
+#endif /* DOXYGEN_SKIP */
 
 bool vebtree_contains_key(VebTree* tree, vebkey_t key)
 {
