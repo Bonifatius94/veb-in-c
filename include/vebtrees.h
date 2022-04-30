@@ -53,7 +53,7 @@ typedef struct _VEB_TREE_NODE {
 } VebTree;
 
 /* ===================================== *
- *          F U N C T I O N  S
+ *          F U N C T I O N S
  * ===================================== */
 
 /**
@@ -288,8 +288,7 @@ vebkey_t vebtree_get_max(VebTree* tree)
 }
 
 void _init_subtrees(VebTree* tree, uint8_t flags);
-void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags);
-void _vebtree_memeff_root_init(VebTree* tree, uint8_t universe_bits, uint8_t flags);
+void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_memeff_root);
 
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
 {
@@ -298,33 +297,34 @@ void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
 
     /* allocate memory for the first tree */
     *new_tree = (VebTree*)malloc(sizeof(VebTree));
-    _vebtree_init(*new_tree, universe_bits, flags);
+    _vebtree_init(*new_tree, universe_bits, flags, true);
 }
 
-void _vebtree_memeff_root_init(VebTree* tree, uint8_t universe_bits, uint8_t flags)
+void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_memeff_root)
 {
+    uint8_t lower_bits;
 
-}
-
-void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags)
-{
     assert((universe_bits > 0 && universe_bits <= 64) 
-        && "invalid amount of universe bits");
+        && "invalid amount of universe bits, needs to be within [1, 64].");
 
-    /* init the tree with an empty node */
-    if (universe_bits > 6)
-        *tree = vebtree_new_empty_node(universe_bits, vebtree_lower_bits(universe_bits), flags);
-    else
+    /* recursion anchor allocating a tree new leaf */
+    if (universe_bits <= 6) {
         *tree = vebtree_new_empty_bitwise_leaf(universe_bits);
+        return;
+    }
 
-    /* recursion anchor for tree leafs */
-    if (vebtree_is_leaf(tree) || vebtree_is_lazy(tree)) return;
+    /* recursion case allocating a tree node */
+    lower_bits = is_memeff_root ? 6 : vebtree_lower_bits(universe_bits);
+    *tree = vebtree_new_empty_node(universe_bits, lower_bits, flags);
+
+    /* don't allocate the whole tree upfront in case of lazy allocation */
+    if (vebtree_is_lazy(tree)) return;
 
     /* fully allocate the tree recursively */
     _init_subtrees(tree, flags);
 
-    assert(tree->global != NULL && "global tree init failed!");
-    assert(tree->locals != NULL && "locals tree init failed!");
+    assert(tree->global != NULL && "global tree init failed unexpectedly!");
+    assert(tree->locals != NULL && "locals tree init failed unexpectedly!");
 }
 
 void _init_subtrees(VebTree* tree, uint8_t flags)
@@ -336,12 +336,12 @@ void _init_subtrees(VebTree* tree, uint8_t flags)
 
     /* init global recursively */
     tree->global = (VebTree*)malloc(sizeof(VebTree));
-    _vebtree_init(tree->global, tree->upper_bits, flags);
+    _vebtree_init(tree->global, tree->upper_bits, flags, false);
 
     /* init locals recursively */
     tree->locals = (VebTree*)malloc(num_locals * sizeof(VebTree));
     for (i = 0; i < num_locals; i++)
-        _vebtree_init(tree->locals + i, tree->lower_bits, flags);
+        _vebtree_init(tree->locals + i, tree->lower_bits, flags, false);
 }
 
 void vebtree_free(VebTree* tree)
