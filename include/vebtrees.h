@@ -33,9 +33,17 @@
  *      T Y P E S   /  S T R U C T S
  * ===================================== */
 
+/**
+ * @brief Representing a 64-bit integer key managed by van Emde Boas trees.
+ * The key space allows any value within [0, u] for a maximum universe u of 2^64.
+ * Note that the key 2^64-1 is reserved for vebtree_null, so it cannot be inserted.
+ */
 typedef uint64_t vebkey_t;
+
+/**
+ * @brief This constant is used to represent null keys (e.g. when a key has no successor).
+ */
 #define vebtree_null 0xFFFFFFFFFFFFFFFF
-typedef uint64_t bitboard_t;
 
 /**
  * @brief Van Emde Boas tree structure representing a tree with its
@@ -43,13 +51,23 @@ typedef uint64_t bitboard_t;
  */
 typedef struct _VEB_TREE_NODE {
     uint8_t universe_bits;
+    /**< The universe bits defining the key space managed by the tree node. */
     uint8_t lower_bits;
+    /**< The universe bits managed by each local subtree. */
     uint8_t upper_bits;
+    /**< The universe bits managed by the global subtree. */
     uint8_t flags;
+    /**< A collection of flags adjusting the tree's behavior. */
     vebkey_t low;
+    /**< The low pointer representing the smallest key inserted into the tree.
+         Note that the low pointer is by definition not inserted into any subtree.
+         Moreover, the bitwise tree leafs use the low pointer as bitboards. */
     vebkey_t high;
+    /**< The high pointer representing the greatest key inserted into the tree. */
     struct _VEB_TREE_NODE* global;
+    /**< The pointer reference to the global subtree. */
     struct _VEB_TREE_NODE* locals;
+    /**< The pointer reference to the local subtrees array. */
 } VebTree;
 
 /* ===================================== *
@@ -146,20 +164,10 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key);
 #ifndef DOXYGEN_SKIP
 
 /* ===================================== *
- *          T R E E   F L A G S
- * ===================================== */
-
-#define VEBTREE_FLAG_LEAF 1
-#define VEBTREE_FLAG_LAZY 2
-#define VEBTREE_DEFAULT_FLAGS 0
-/* TODO: enable lazy mode once the implementation is ready */
-
-#define vebtree_is_leaf(tree) ((tree)->flags & VEBTREE_FLAG_LEAF || (tree)->universe_bits <= 6)
-#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
-
-/* ===================================== *
  *        B I T S C A N   O P S
  * ===================================== */
+
+typedef uint64_t bitboard_t;
 
 /* use intrinsic processor operations for computing the leading / trailing zero bit count */
 #ifdef __GNUC__ /* GCC intrinsics for Linux / Mac */
@@ -209,6 +217,7 @@ int trailing_zeros(bitboard_t bits)
  *        B I T W I S E   L E A F
  * ===================================== */
 
+#define VEBTREE_LEAF_BITS 6
 #define vebtree_new_empty_bitwise_leaf(uni_bits) (VebTree){\
     (uni_bits), 0, 0, 0, 0, vebtree_null, NULL, NULL}
 
@@ -247,6 +256,18 @@ void vebtree_bitwise_leaf_delete_key(VebTree* tree, vebkey_t key)
 }
 
 /* ===================================== *
+ *          T R E E   F L A G S
+ * ===================================== */
+
+#define VEBTREE_FLAG_LEAF 1
+#define VEBTREE_FLAG_LAZY 2
+#define VEBTREE_DEFAULT_FLAGS 0
+/* TODO: enable lazy mode once the implementation is ready */
+
+#define vebtree_is_leaf(tree) ((tree)->universe_bits <= VEBTREE_LEAF_BITS)
+#define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
+
+/* ===================================== *
  *           V E B   C O R E
  * ===================================== */
 
@@ -274,7 +295,7 @@ vebkey_t vebtree_get_min(VebTree* tree)
     if (vebtree_is_empty(tree))
         return vebtree_null;
 
-    return vebtree_is_leaf(tree) \
+    return vebtree_is_leaf(tree)
         ? vebtree_bitwise_leaf_get_min(tree) : tree->low;
 }
 
@@ -283,7 +304,7 @@ vebkey_t vebtree_get_max(VebTree* tree)
     if (vebtree_is_empty(tree))
         return vebtree_null;
 
-    return vebtree_is_leaf(tree) \
+    return vebtree_is_leaf(tree)
         ? vebtree_bitwise_leaf_get_max(tree) : tree->high;
 }
 
@@ -308,13 +329,13 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
         && "invalid amount of universe bits, needs to be within [1, 64].");
 
     /* recursion anchor allocating a tree new leaf */
-    if (universe_bits <= 6) {
+    if (universe_bits <= VEBTREE_LEAF_BITS) {
         *tree = vebtree_new_empty_bitwise_leaf(universe_bits);
         return;
     }
 
     /* recursion case allocating a tree node */
-    lower_bits = is_memeff_root ? 6 : vebtree_lower_bits(universe_bits);
+    lower_bits = is_memeff_root ? VEBTREE_LEAF_BITS : vebtree_lower_bits(universe_bits);
     *tree = vebtree_new_empty_node(universe_bits, lower_bits, flags);
 
     /* don't allocate the whole tree upfront in case of lazy allocation */
