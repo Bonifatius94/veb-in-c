@@ -80,9 +80,9 @@ int main(int argc, char** argv)
     printf("Sorting took %lf milliseconds\n", elapsed * 1000);
 
     /* sort keys using insert() / max() / predecessor() operations */
-    // sort_veb_pred(keys, num_keys, sorted_keys);
-    // for (i = 0; i < num_keys-1; i++)
-    //     assert(sorted_keys[i] < sorted_keys[i+1]);
+    sort_veb_pred(keys, num_keys, sorted_keys);
+    for (i = 0; i < num_keys-1; i++)
+        assert(sorted_keys[i] < sorted_keys[i+1]);
     // TODO: enable this test when the predecessor operation is ready for use
 
     free(keys); free(sorted_keys);
