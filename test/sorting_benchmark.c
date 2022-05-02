@@ -10,7 +10,7 @@
  *        V A N   E M D E   B O A S   S O R T
  * ==================================================== */
 
-int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
+void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
@@ -27,7 +27,7 @@ int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
 
 /* this is just for testing whether the predecessor() operation works,
    one sorting procedure using the van Emde Boas tree totally suffices */
-int sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
+void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
