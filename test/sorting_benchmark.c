@@ -75,8 +75,8 @@ void _quick_sort(uint64_t array[], uint64_t low, uint64_t high)
     
     /* recursion step */
     pivot = partition(array, low, high);
-    quickSort(array, low, pi - 1);
-    quickSort(array, pi + 1, high);
+    _quickSort(array, low, pi - 1);
+    _quickSort(array, pi + 1, high);
 }
 
 void quick_sort(uint64_t array[], uint64_t num_keys, uint64_t output[])
