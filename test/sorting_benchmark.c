@@ -12,9 +12,11 @@
 
 void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
-    size_t i; VebTree* tree;
+    size_t i; VebTree* tree; uint8_t uni_bits;
 
-    vebtree_init(&tree, 19, VEBTREE_DEFAULT_FLAGS);
+    uni_bits = vebtree_required_universe_bits(num_keys);
+    vebtree_init(&tree, uni_bits, VEBTREE_DEFAULT_FLAGS);
+
     for (i = 0; i < num_keys; i++)
         vebtree_insert_key(tree, keys[i]);
 
@@ -29,9 +31,11 @@ void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
    one sorting procedure using the van Emde Boas tree totally suffices */
 void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
-    size_t i; VebTree* tree;
+    size_t i; VebTree* tree; uint8_t uni_bits;
+    
+    uni_bits = vebtree_required_universe_bits(num_keys);
+    vebtree_init(&tree, uni_bits, VEBTREE_DEFAULT_FLAGS);
 
-    vebtree_init(&tree, 19, VEBTREE_DEFAULT_FLAGS);
     for (i = 0; i < num_keys; i++)
         vebtree_insert_key(tree, keys[i]);
 

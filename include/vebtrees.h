@@ -160,6 +160,15 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key);
  */
 void vebtree_delete_key(VebTree* tree, vebkey_t key);
 
+/**
+ * @brief Retrieve the amount of universe bits required
+ * to represent the given maximum key value.
+ * 
+ * @param max_key the maximum key to be inserted into the van Emde Boas tree.
+ * @return the universe bits required to represent the max. key
+ */
+uint8_t vebtree_required_universe_bits(vebkey_t max_key);
+
 /* info: ignore details for Doxygen docs */
 #ifndef DOXYGEN_SKIP
 
@@ -306,6 +315,12 @@ vebkey_t vebtree_get_max(VebTree* tree)
 
     return vebtree_is_leaf(tree)
         ? vebtree_bitwise_leaf_get_max(tree) : tree->high;
+}
+
+uint8_t vebtree_required_universe_bits(vebkey_t max_key)
+{
+    assert(max_key != 0 && "universe has to consist of at least 2 keys");
+    return max_bit_set(max_key) == 0 ? 64 : max_bit_set(max_key) + 1;
 }
 
 void _init_subtrees(VebTree* tree, uint8_t flags);
