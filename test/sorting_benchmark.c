@@ -104,7 +104,8 @@ void linear_shuffle(uint64_t keys[], size_t num_keys)
     }
 }
 
-double benchmark_sort_algo_in_ms(void* sort_func, uint64_t num_keys, size_t test_runs, size_t rng_seed)
+double benchmark_sort_algo_in_ms(void (*sort_func)(uint64_t*, uint64_t, uint64_t*),
+                                 uint64_t num_keys, size_t test_runs, size_t rng_seed)
 {
     size_t i, t;
     uint64_t *keys, *sorted_keys;
