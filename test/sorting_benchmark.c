@@ -3,9 +3,14 @@
 #include <stdbool.h>
 #include <assert.h>
 #include <time.h>
+#include <string.h>
 #include "vebtrees.h"
 
-int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
+/* ====================================================
+ *         V A N   E M D E   B O A S   S O R T
+ * ==================================================== */
+
+void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
@@ -20,7 +25,9 @@ int sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
     vebtree_free(tree);
 }
 
-int sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
+/* this is just for testing whether the predecessor() operation works,
+   one sorting procedure using the van Emde Boas tree totally suffices */
+void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
 {
     size_t i; VebTree* tree;
 
@@ -34,6 +41,29 @@ int sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
 
     vebtree_free(tree);
 }
+
+// /* ====================================================
+//  *                Q U I C K   S O R T
+//  * ==================================================== */
+
+int compare(const void* a, const void* b)
+{
+    if (*(uint64_t*)a < *(uint64_t*)b)
+        return -1;
+    if (*(uint64_t*)a > *(uint64_t*)b)
+        return 1;
+    return 0;
+}
+
+void quick_sort(const uint64_t array[], uint64_t num_keys, uint64_t output[])
+{
+    memcpy(output, array, sizeof(uint64_t) * num_keys);
+    qsort(output, num_keys, sizeof(uint64_t), compare);
+}
+
+/* ====================================================
+ *                B E N C H M A R K
+ * ==================================================== */
 
 void linear_shuffle(uint64_t keys[], size_t num_keys)
 {
@@ -50,41 +80,53 @@ void linear_shuffle(uint64_t keys[], size_t num_keys)
     }
 }
 
-int main(int argc, char** argv)
+double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, uint64_t, uint64_t*),
+                                 uint64_t num_keys, size_t test_runs)
 {
-    size_t i, t, num_keys = 500000, test_runs = 100;
+    size_t i, t;
     uint64_t *keys, *sorted_keys;
     clock_t start, end; double elapsed = 0;
 
     keys = malloc(sizeof(uint64_t) * num_keys);
     sorted_keys = malloc(sizeof(uint64_t) * num_keys);
-
-    /* generate random distributed array of keys */
-    srand(42);
     for (i = 0; i < num_keys; i++)
         keys[i] = i;
-    linear_shuffle(keys, num_keys);
 
     for (t = 0; t < test_runs; t++)
     {
-        /* sort keys using insert() / min() / successor() operations */
+        /* generate a randomly distributed array of keys */
+        srand(t);
+        linear_shuffle(keys, num_keys);
+
+        /* call the sorting routine and measure the time elapsed */
         start = clock();
-        sort_veb_succ(keys, num_keys, sorted_keys);
+        (*sort_func)(keys, num_keys, sorted_keys);
         end = clock();
-        elapsed += (double)(end - start) / CLOCKS_PER_SEC;
+
+        /* verify that the sorted keys are valid */
         for (i = 0; i < num_keys-1; i++)
             assert(sorted_keys[i] < sorted_keys[i+1]);
+
+        elapsed += (double)(end - start) / CLOCKS_PER_SEC;
     }
 
-    elapsed /= test_runs;
-    printf("Sorting took %lf milliseconds\n", elapsed * 1000);
-
-    /* sort keys using insert() / max() / predecessor() operations */
-    // sort_veb_pred(keys, num_keys, sorted_keys);
-    // for (i = 0; i < num_keys-1; i++)
-    //     assert(sorted_keys[i] < sorted_keys[i+1]);
-    // TODO: enable this test when the predecessor operation is ready for use
-
     free(keys); free(sorted_keys);
+    return elapsed / test_runs * 1000;
+}
+
+int main(int argc, char** argv)
+{
+    size_t num_keys = 500000, test_runs = 100;
+
+    printf("Veb sorting took %lf milliseconds\n", 
+           benchmark_sort_algo_in_ms(&sort_veb_succ, num_keys, test_runs));
+
+    /* TODO: enable this test to verify that predecessor() works */
+    /*printf("Veb sorting (backwards) took %lf milliseconds\n", 
+           benchmark_sort_algo_in_ms(&sort_veb_pred, num_keys, test_runs, rng_seed));*/
+
+    printf("Quicksort took %lf milliseconds\n", 
+           benchmark_sort_algo_in_ms(&quick_sort, num_keys, test_runs));
+
     return 0;
 }
