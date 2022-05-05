@@ -181,23 +181,26 @@ typedef uint64_t bitboard_t;
 /* use intrinsic processor operations for computing the leading / trailing zero bit count */
 #ifdef __GNUC__ /* GCC intrinsics for Linux / Mac */
 
-#define leading_zeros(x) (sizeof(bitboard_t) * 8 - __builtin_clzll(bits) - 1)
+#define leading_zeros(x) __builtin_clzll(x)
 #define trailing_zeros(x) __builtin_ctzll(x)
+
+#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
+#define max_bit_set(bits) ((uint8_t)(sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1))
 
 #elif _MSC_VER /* MSVC intrinsics for Windows */
 
-int leading_zeros(bitboard_t bits)
+uint8_t max_bit_set(bitboard_t bits)
 {
     uint32_t idx = 0;
     _BitScanReverse64(&idx, bits);
-    return (int)idx;
+    return (uint8_t)idx;
 }
 
-int trailing_zeros(bitboard_t bits)
+uint8_t min_bit_set(bitboard_t bits)
 {
     uint32_t idx = 0;
     _BitScanForward64(&idx, bits);
-    return (int)idx;
+    return (uint8_t)idx;
 }
 
 #else /* fallback implementation for other compilers / systems */
@@ -205,30 +208,32 @@ int trailing_zeros(bitboard_t bits)
 int leading_zeros(bitboard_t bits)
 {
     int count = 0;
+    bitboard_t mask = (bitboard_t)1 << (sizeof(bitboard_t) * 8 - 1);
 
     if (bits == 0)
         return 64;
 
-    while (bits & (0x800000000000000ull >> count++) == 0) {}
-    return count - 1;
+    while (mask && (bits & mask) == 0) { count++; mask >>= 1; }
+    return count;
 }
 
 int trailing_zeros(bitboard_t bits)
 {
     int count = 0;
+    bitboard_t mask = 1;
 
     if (bits == 0)
         return 64;
 
-    while (bits & (0x1ull << count++) == 0) {}
-    return count - 1;
+    while (mask && (bits & mask) == 0) { count++; mask <<= 1; }
+    return count;
 }
+
+#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
+#define max_bit_set(bits) ((uint8_t)(sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1))
 
 #endif
 /* TODO: use SIMD instructions to support even bigger leaf universes */
-
-#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
-#define max_bit_set(bits) ((uint8_t)leading_zeros(bits))
 
 /* ===================================== *
  *        B I T W I S E   L E A F
