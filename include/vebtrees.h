@@ -186,13 +186,21 @@ typedef uint64_t bitboard_t;
 
 #elif _MSC_VER /* MSVC intrinsics for Windows */
 
-#define leading_zeros(x) __lzcnt64(x)
-#define trailing_zeros(x) __tzcnt64(x)
+int leading_zeros(bitboard_t bits)
+{
+    uint32_t idx = 0;
+    _BitScanReverse64(&idx, bits);
+    return (int)idx;
+}
+
+int trailing_zeros(bitboard_t bits)
+{
+    uint32_t idx = 0;
+    _BitScanForward64(&idx, bits);
+    return (int)idx;
+}
 
 #else /* fallback implementation for other compilers / systems */
-
-int leading_zeros(bitboard_t bits);
-int trailing_zeros(bitboard_t bits);
 
 int leading_zeros(bitboard_t bits)
 {
@@ -219,8 +227,8 @@ int trailing_zeros(bitboard_t bits)
 #endif
 /* TODO: use SIMD instructions to support even bigger leaf universes */
 
-#define min_bit_set(bits) (trailing_zeros(bits))
-#define max_bit_set(bits) (sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1)
+#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
+#define max_bit_set(bits) ((uint8_t)(sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1))
 
 /* ===================================== *
  *        B I T W I S E   L E A F
@@ -365,7 +373,7 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
 
 void _init_subtrees(VebTree* tree, uint8_t flags)
 {
-    size_t i, num_locals; VebTree* temp;
+    size_t i, num_locals;
 
     /* determine the sizes of global / locals */
     num_locals = vebtree_universe_maxvalue(tree->upper_bits);
@@ -458,6 +466,7 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
 {
     /* TODO: implement this analog to the successor function */
     assert(false && "this operation is currently not supported");
+    return vebtree_null;
 }
 
 void vebtree_insert_key(VebTree* tree, vebkey_t key)

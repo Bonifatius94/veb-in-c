@@ -91,15 +91,19 @@ double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, uint64_t, ui
     uint64_t *keys, *sorted_keys;
     clock_t start, end; double elapsed = 0;
 
-    keys = malloc(sizeof(uint64_t) * num_keys);
-    sorted_keys = malloc(sizeof(uint64_t) * num_keys);
+    keys = malloc(sizeof(vebkey_t) * num_keys);
+    assert(keys != NULL && "keys array allocation failed unexpectedly!");
+
+    sorted_keys = malloc(sizeof(vebkey_t) * num_keys);
+    assert(sorted_keys != NULL && "sorted keys array allocation failed unexpectedly!");
+
     for (i = 0; i < num_keys; i++)
-        keys[i] = i;
+        keys[i] = (vebkey_t)i;
 
     for (t = 0; t < test_runs; t++)
     {
         /* generate a randomly distributed array of keys */
-        srand(t);
+        srand((uint32_t)t);
         linear_shuffle(keys, num_keys);
 
         /* call the sorting routine and measure the time elapsed */
@@ -111,7 +115,7 @@ double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, uint64_t, ui
         for (i = 0; i < num_keys-1; i++)
             assert(sorted_keys[i] < sorted_keys[i+1]);
 
-        elapsed += (double)(end - start) / CLOCKS_PER_SEC;
+        elapsed += ((double)end - start) / CLOCKS_PER_SEC;
     }
 
     free(keys); free(sorted_keys);
