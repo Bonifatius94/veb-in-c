@@ -184,43 +184,56 @@ typedef uint64_t bitboard_t;
 #define leading_zeros(x) __builtin_clzll(x)
 #define trailing_zeros(x) __builtin_ctzll(x)
 
+#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
+#define max_bit_set(bits) ((uint8_t)(sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1))
+
 #elif _MSC_VER /* MSVC intrinsics for Windows */
 
-#define leading_zeros(x) __lzcnt64(x)
-#define trailing_zeros(x) __tzcnt64(x)
+uint8_t max_bit_set(bitboard_t bits)
+{
+    uint32_t idx = 0;
+    _BitScanReverse64(&idx, bits);
+    return (uint8_t)idx;
+}
+
+uint8_t min_bit_set(bitboard_t bits)
+{
+    uint32_t idx = 0;
+    _BitScanForward64(&idx, bits);
+    return (uint8_t)idx;
+}
 
 #else /* fallback implementation for other compilers / systems */
-
-int leading_zeros(bitboard_t bits);
-int trailing_zeros(bitboard_t bits);
 
 int leading_zeros(bitboard_t bits)
 {
     int count = 0;
+    bitboard_t mask = (bitboard_t)1 << (sizeof(bitboard_t) * 8 - 1);
 
     if (bits == 0)
         return 64;
 
-    while (bits & (0x800000000000000ull >> count++) == 0) {}
-    return count - 1;
+    while (mask && (bits & mask) == 0) { count++; mask >>= 1; }
+    return count;
 }
 
 int trailing_zeros(bitboard_t bits)
 {
     int count = 0;
+    bitboard_t mask = 1;
 
     if (bits == 0)
         return 64;
 
-    while (bits & (0x1ull << count++) == 0) {}
-    return count - 1;
+    while (mask && (bits & mask) == 0) { count++; mask <<= 1; }
+    return count;
 }
+
+#define min_bit_set(bits) ((uint8_t)trailing_zeros(bits))
+#define max_bit_set(bits) ((uint8_t)(sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1))
 
 #endif
 /* TODO: use SIMD instructions to support even bigger leaf universes */
-
-#define min_bit_set(bits) (trailing_zeros(bits))
-#define max_bit_set(bits) (sizeof(bitboard_t) * 8 - leading_zeros(bits) - 1)
 
 /* ===================================== *
  *        B I T W I S E   L E A F
@@ -365,7 +378,7 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
 
 void _init_subtrees(VebTree* tree, uint8_t flags)
 {
-    size_t i, num_locals; VebTree* temp;
+    size_t i, num_locals;
 
     /* determine the sizes of global / locals */
     num_locals = vebtree_universe_maxvalue(tree->upper_bits);
@@ -458,6 +471,7 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
 {
     /* TODO: implement this analog to the successor function */
     assert(false && "this operation is currently not supported");
+    return vebtree_null;
 }
 
 void vebtree_insert_key(VebTree* tree, vebkey_t key)
