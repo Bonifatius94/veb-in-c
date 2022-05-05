@@ -59,7 +59,7 @@ int compare(const void* a, const void* b)
     return 0;
 }
 
-void quick_sort(const uint64_t array[], uint64_t num_keys, uint64_t output[])
+void quick_sort(const uint64_t array[], size_t num_keys, uint64_t output[])
 {
     memcpy(output, array, sizeof(uint64_t) * num_keys);
     qsort(output, num_keys, sizeof(uint64_t), compare);
@@ -84,8 +84,8 @@ void linear_shuffle(uint64_t keys[], size_t num_keys)
     }
 }
 
-double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, uint64_t, uint64_t*),
-                                 uint64_t num_keys, size_t test_runs)
+double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, size_t, uint64_t*),
+                                 size_t num_keys, size_t test_runs)
 {
     size_t i, t;
     uint64_t *keys, *sorted_keys;
