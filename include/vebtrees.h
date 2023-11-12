@@ -1,17 +1,17 @@
 /* MIT License
- * 
+ *
  * Copyright (c) 2022 Marco Tröster
- * 
+ *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
  * in the Software without restriction, including without limitation the rights
  * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
  * copies of the Software, and to permit persons to whom the Software is
  * furnished to do so, subject to the following conditions:
- * 
+ *
  * The above copyright notice and this permission notice shall be included in all
  * copies or substantial portions of the Software.
- * 
+ *
  * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
  * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
  * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
@@ -76,7 +76,7 @@ typedef struct _VEB_TREE_NODE {
 
 /**
  * @brief Create a new van Emde Boas tree structure.
- * 
+ *
  * @param tree a reference pointer that is set to the
  *             newly allocated tree structure's reference.
  * @param universe_bits the universe size to be managed by the tree in bits
@@ -86,14 +86,14 @@ void vebtree_init(VebTree** tree, uint8_t universe_bits, uint8_t flags);
 
 /**
  * @brief Free the memory allocated by the given van Emde Boas tree.
- * 
+ *
  * @param tree the tree to be freed.
  */
 void vebtree_free(VebTree* tree);
 
 /**
  * @brief Inidicates whether a van Emde Boas tree contains the given key.
- * 
+ *
  * @param tree the tree to be looked up for the key
  * @param key the key to be looked up
  * @return true if the tree contains the key
@@ -103,7 +103,7 @@ bool vebtree_contains_key(VebTree* tree, vebkey_t key);
 
 /**
  * @brief Indicates whether a tree structure is empty.
- * 
+ *
  * @param tree the tree to be searched whether it's empty
  * @return true if the tree structure is empty
  * @return false if the tree structure contains keys
@@ -112,7 +112,7 @@ bool vebtree_is_empty(VebTree* tree);
 
 /**
  * @brief Retrieves the smallest key inserted into the structure.
- * 
+ *
  * @param tree the tree to be searched for the smallest key
  * @return the smallest key inserted or vebtree_null if the tree is empty
  */
@@ -120,7 +120,7 @@ vebkey_t vebtree_get_min(VebTree* tree);
 
 /**
  * @brief Retrieves the greatest key inserted into the structure.
- * 
+ *
  * @param tree the tree to be searched for the greatest key
  * @return the greatest key inserted or vebtree_null if the tree is empty
  */
@@ -128,7 +128,7 @@ vebkey_t vebtree_get_max(VebTree* tree);
 
 /**
  * @brief Retrieve the key's successor.
- * 
+ *
  * @param tree the tree to be looked up for the key's successor
  * @param key the key to be looked up
  * @return the key's successor or vebtree_null if the key has no successor
@@ -137,7 +137,7 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key);
 
 /**
  * @brief Retrieve the key's predecessor.
- * 
+ *
  * @param tree the tree to be looked up for the key's predecessor
  * @param key the key to be looked up
  * @return the key's predecessor or vebtree_null if the key has no predecessor
@@ -146,7 +146,7 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key);
 
 /**
  * @brief Insert the given key into the data structure.
- * 
+ *
  * @param tree the tree to be inserted into
  * @param key the key to be inserted
  */
@@ -154,7 +154,7 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key);
 
 /**
  * @brief Delete the given key from the data structure.
- * 
+ *
  * @param tree the tree to be deleted from
  * @param key the key to be deleted
  */
@@ -163,7 +163,7 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key);
 /**
  * @brief Retrieve the amount of universe bits required
  * to represent the given maximum key value.
- * 
+ *
  * @param max_key the maximum key to be inserted into the van Emde Boas tree.
  * @return the universe bits required to represent the max. key
  */
@@ -341,7 +341,7 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
 
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
 {
-    assert((universe_bits > 0 && universe_bits <= 64) 
+    assert((universe_bits > 0 && universe_bits <= 64)
         && "invalid amount of universe bits, needs to be within [1, 64].");
 
     /* allocate memory for the first tree */
@@ -353,7 +353,7 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
 {
     uint8_t lower_bits;
 
-    assert((universe_bits > 0 && universe_bits <= 64) 
+    assert((universe_bits > 0 && universe_bits <= 64)
         && "invalid amount of universe bits, needs to be within [1, 64].");
 
     /* recursion anchor allocating a tree new leaf */
@@ -458,7 +458,7 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
     /* case where a local contains the successor */
     if (vebtree_get_max(&(tree->locals[global_key])) != vebtree_null &&
             local_key < vebtree_get_max(&(tree->locals[global_key])))
-        return (global_key << tree->lower_bits) | 
+        return (global_key << tree->lower_bits) |
             (vebtree_successor(&(tree->locals[global_key]), local_key));
 
     /* case where a neighbour contains the successor */

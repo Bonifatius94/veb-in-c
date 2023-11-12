@@ -27,25 +27,6 @@ void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
     vebtree_free(tree);
 }
 
-/* this is just for testing whether the predecessor() operation works,
-   one sorting procedure using the van Emde Boas tree totally suffices */
-void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
-{
-    size_t i; VebTree* tree; uint8_t uni_bits;
-    
-    uni_bits = vebtree_required_universe_bits(num_keys);
-    vebtree_init(&tree, uni_bits, VEBTREE_DEFAULT_FLAGS);
-
-    for (i = 0; i < num_keys; i++)
-        vebtree_insert_key(tree, keys[i]);
-
-    output[num_keys-1] = vebtree_get_max(tree);
-    for (i = num_keys-2; i > 0; i--)
-        output[i] = vebtree_predecessor(tree, output[i+1]);
-
-    vebtree_free(tree);
-}
-
 /* ====================================================
  *                Q U I C K   S O R T
  * ==================================================== */
@@ -84,8 +65,9 @@ void linear_shuffle(uint64_t keys[], size_t num_keys)
     }
 }
 
-double benchmark_sort_algo_in_ms(void (*sort_func)(const uint64_t*, size_t, uint64_t*),
-                                 size_t num_keys, size_t test_runs)
+double benchmark_sort_algo_in_ms(
+    void (*sort_func)(const uint64_t*, size_t, uint64_t*),
+    size_t num_keys, size_t test_runs)
 {
     size_t i, t;
     uint64_t *keys, *sorted_keys;
@@ -126,14 +108,10 @@ int main(int argc, char** argv)
 {
     size_t num_keys = 500000, test_runs = 100;
 
-    printf("Veb sorting took %lf milliseconds\n", 
+    printf("Veb sorting took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&sort_veb_succ, num_keys, test_runs));
 
-    /* TODO: enable this test to verify that predecessor() works */
-    /*printf("Veb sorting (backwards) took %lf milliseconds\n", 
-           benchmark_sort_algo_in_ms(&sort_veb_pred, num_keys, test_runs, rng_seed));*/
-
-    printf("Quicksort took %lf milliseconds\n", 
+    printf("Quicksort took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&quick_sort, num_keys, test_runs));
 
     return 0;

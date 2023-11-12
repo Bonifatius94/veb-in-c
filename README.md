@@ -8,9 +8,6 @@ Benchmarks show that it's really efficient, e.g. sorting is ~ 10x faster than st
 It's a small, standalone, single-header implementation, not relying on any external dependencies,
 highly portable to any operating system or processor architecture of choice.
 
-If you're interested in some theoretical background, see the [theory](./THEORY.md) section.
-(I admit it could be a bit more backed with mathematical proofs, so feel free to help me out.)
-
 ## Build Toolchain Setup
 First, you need to install a minimalistic C compiler toolchain for building the source code.
 Additionally, there are a few more packages to generate the Doxygen website (optional).
@@ -42,6 +39,26 @@ benchmarks to ensure that the van Emde Boas tree is working as expected.
 ./build.sh
 ```
 
+## Benchmark
+For benchmarking, 500k dense indices need to be sorted. The stdlib.h qsort() function
+is compared to a sorting procedure using a Veb tree. First, all keys are inserted
+into the tree. Then the sorting procedure looks up the smallest key and finds successors
+until the highest key is reached. For fairness, the benchmark includes building up the tree.
+
+```sh
+build/test/SortingBenchmark
+```
+
+Results show that sorting dense indices can be carried out very efficiently with Veb trees.
+In fact, the practical performance improves by a quite significant factor of 10x.
+
+```text
+Sorting Benchmark (500k keys)
+=============================
+Veb sorting took 5.796520 milliseconds
+Quicksort took 59.823940 milliseconds
+```
+
 ## Doxygen Documentation
 If you like to generate the documentation website, run the gen-docs script.
 
@@ -61,15 +78,6 @@ firefox index.html
 ## Deployment into Projects
 Just copy the [vebtrees.h](./include/vebtrees.h) file into your project's include directory.
 As already mentioned, the code is standalone, single-header, pure C89, no crazy dependencies.
-
-## Limitations + Roadmap
-There are still some features / issues left that I'd like to address in the near future.
-This mainly concerns the structure's memory hunger when dealing with sparse universes.
-
-1) Lazy Allocation: add options to avoid a fully upfront tree allocation (performance tradeoff)
-2) Sparse Universes: dynamically switch in hashmaps for globals when the universe is sparse
-3) Malloc Limitation: get rid of malloc issues for initializing arrays exceeding a few MBs of RAM
-4) Bigger Tree Leafs: increase the leaf size without loss of performance using SIMD registers / ops
 
 ## License
 This project is available under the terms of the MIT license.
