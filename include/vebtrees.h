@@ -469,6 +469,8 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
 
 vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
 {
+    vebkey_t global_key, local_key, global_pred;
+
     /* recursion anchor for tree leafs */
     if (vebtree_is_leaf(tree))
         return vebtree_bitwise_leaf_predecessor(tree, key);
@@ -477,9 +479,26 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
     if (vebtree_is_empty(tree))
         return vebtree_null;
 
-    /* TODO: implement remaining cases analog to the successor function */
-    assert(false && "this operation is currently not supported");
-    return vebtree_null;
+    /* base case for successor in neighbour local -> high is the predecessor */
+    if (tree->high != vebtree_null && key > tree->high)
+        return tree->high;
+
+    local_key = vebtree_local_address(key, tree->lower_bits);
+    global_key = vebtree_global_address(key, tree->lower_bits);
+
+    /* case where a local contains the predecessor */
+    if (vebtree_get_min(&(tree->locals[global_key])) != vebtree_null &&
+            local_key > vebtree_get_min(&(tree->locals[global_key])))
+        return (global_key << tree->lower_bits) |
+            (vebtree_predecessor(&(tree->locals[global_key]), local_key));
+
+    /* case where a neighbour contains the predecessor */
+    global_pred = vebtree_predecessor(tree->global, global_key);
+    if (global_pred != vebtree_null)
+        return (global_pred << tree->lower_bits) | vebtree_get_max(&(tree->locals[global_pred]));
+
+    /* low is the predecessor (low is not stored in any subtree) */
+    return (tree->low != vebtree_null && key > tree->low) ? tree->low : vebtree_null;
 }
 
 void vebtree_insert_key(VebTree* tree, vebkey_t key)
