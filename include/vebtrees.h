@@ -538,6 +538,10 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key)
     vebkey_t global_key, local_key, global_high, global_low;
     assert(key != vebtree_null && "cannot delete vebtree_null, invalid key!");
 
+    /* idempotence guard: deleting an absent key from a single-element
+       subtree would still hit the low==high branch and wipe the entry */
+    if (!vebtree_contains_key(tree, key)) return;
+
     /* base case for tree leafs */
     if (vebtree_is_leaf(tree)) { vebtree_bitwise_leaf_delete_key(tree, key); return; }
 

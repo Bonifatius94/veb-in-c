@@ -295,6 +295,32 @@ void should_ignore_delete_absent_u4096()
     vebtree_free(tree);
 }
 
+void should_ignore_delete_absent_on_leaf_u64()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 6, 0);
+    assert(vebtree_is_leaf(tree));
+
+    vebtree_delete_key(tree, 3);
+    assert(vebtree_is_empty(tree));
+
+    vebtree_insert_key(tree, 3);
+    vebtree_insert_key(tree, 17);
+    vebtree_insert_key(tree, 42);
+
+    vebtree_delete_key(tree, 0);
+    vebtree_delete_key(tree, 20);
+    vebtree_delete_key(tree, 63);
+
+    assert(vebtree_contains_key(tree, 3));
+    assert(vebtree_contains_key(tree, 17));
+    assert(vebtree_contains_key(tree, 42));
+    assert(vebtree_get_min(tree) == 3);
+    assert(vebtree_get_max(tree) == 42);
+
+    vebtree_free(tree);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
@@ -310,5 +336,6 @@ int main(int argc, char** argv)
     should_ignore_duplicate_insert_u4096();
     should_ignore_duplicate_insert_on_low_u4096();
     should_ignore_delete_absent_u4096();
+    should_ignore_delete_absent_on_leaf_u64();
     return 0;
 }
