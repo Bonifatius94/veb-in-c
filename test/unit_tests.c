@@ -695,6 +695,35 @@ void should_lazy_sparse_inserts_u24()
     vebtree_free(tree);
 }
 
+void should_lazy_slot_reinit_after_empty_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, VEBTREE_FLAG_LAZY);
+
+    /* 10 and 20 share cluster 0 (both < 64) */
+    vebtree_insert_key(tree, 10);
+    vebtree_insert_key(tree, 20);
+    assert(vebtree_contains_key(tree, 10));
+    assert(vebtree_contains_key(tree, 20));
+
+    /* delete both - cluster 0 empties, global loses bit 0 */
+    vebtree_delete_key(tree, 20);
+    vebtree_delete_key(tree, 10);
+    assert(vebtree_is_empty(tree));
+
+    /* re-insert into a previously-emptied cluster - slot must be usable */
+    vebtree_insert_key(tree, 30);
+    vebtree_insert_key(tree, 50);
+    assert(vebtree_contains_key(tree, 30));
+    assert(vebtree_contains_key(tree, 50));
+    assert(vebtree_get_min(tree) == 30);
+    assert(vebtree_get_max(tree) == 50);
+    assert(vebtree_successor(tree, 30) == 50);
+    assert(vebtree_predecessor(tree, 50) == 30);
+
+    vebtree_free(tree);
+}
+
 void should_compute_required_universe_bits()
 {
     /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
@@ -743,6 +772,7 @@ int main(int argc, char** argv)
     should_lazy_handle_single_insert_u4096();
     should_lazy_round_trip_u4096();
     should_lazy_sparse_inserts_u24();
+    should_lazy_slot_reinit_after_empty_u4096();
     should_compute_required_universe_bits();
     return 0;
 }
