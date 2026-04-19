@@ -403,6 +403,10 @@ void vebtree_free(VebTree* tree)
     if (vebtree_is_leaf(tree))
         return;
 
+    /* recursion anchor for never-touched lazy node */
+    if (tree->global == NULL)
+        return;
+
     /* recursion case for child trees */
     vebtree_free(tree->global);
     num_locals = vebtree_universe_maxvalue(tree->upper_bits);
