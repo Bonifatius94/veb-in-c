@@ -254,6 +254,8 @@ int trailing_zeros(bitboard_t bits)
 vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 {
     uint64_t succ_bits, min_succ;
+    /* leading_bits_mask(key+1) is UB for key >= 63 (shift by >= 64 on uint64_t) */
+    if (key >= 63) return vebtree_null;
     succ_bits = tree->low & leading_bits_mask((uint8_t)key + 1);
     min_succ = min_bit_set(succ_bits);
     return (min_succ == 0 || succ_bits == 0) ? vebtree_null : min_succ;
