@@ -356,8 +356,8 @@ void should_find_successor_crossing_low_u4096()
     assert(vebtree_successor(tree, 6) == 200);
     assert(vebtree_successor(tree, 199) == 200);
     assert(vebtree_successor(tree, 200) == vebtree_null);
-    /* successor past tree->high at global_key == 63 triggers leading_bits_mask(64)
-       which is UB on 64-bit shifts - tracked separately, do not test here */
+    assert(vebtree_successor(tree, 4094) == vebtree_null);
+    assert(vebtree_successor(tree, 4095) == vebtree_null);
 
     vebtree_free(tree);
 }
