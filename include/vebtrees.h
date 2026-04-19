@@ -469,7 +469,15 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
 
 vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
 {
-    /* TODO: implement this analog to the successor function */
+    /* recursion anchor for tree leafs */
+    if (vebtree_is_leaf(tree))
+        return vebtree_bitwise_leaf_predecessor(tree, key);
+
+    /* base case: stop recursion when tree is empty */
+    if (vebtree_is_empty(tree))
+        return vebtree_null;
+
+    /* TODO: implement remaining cases analog to the successor function */
     assert(false && "this operation is currently not supported");
     return vebtree_null;
 }
