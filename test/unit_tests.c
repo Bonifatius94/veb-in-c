@@ -254,6 +254,26 @@ void should_find_predecessor_with_gaps_u4096()
     vebtree_free(tree);
 }
 
+void should_find_successor_crossing_low_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    vebtree_insert_key(tree, 5);
+    vebtree_insert_key(tree, 200);
+
+    assert(vebtree_successor(tree, 0) == 5);
+    assert(vebtree_successor(tree, 4) == 5);
+    assert(vebtree_successor(tree, 5) == 200);
+    assert(vebtree_successor(tree, 6) == 200);
+    assert(vebtree_successor(tree, 199) == 200);
+    assert(vebtree_successor(tree, 200) == vebtree_null);
+    /* successor past tree->high at global_key == 63 triggers leading_bits_mask(64)
+       which is UB on 64-bit shifts - tracked separately, do not test here */
+
+    vebtree_free(tree);
+}
+
 void should_find_predecessor_crossing_low_u4096()
 {
     VebTree* tree;
@@ -425,6 +445,7 @@ int main(int argc, char** argv)
     should_find_predecessor_in_fully_alloc_tree_u4096();
     should_find_successor_with_gaps_u4096();
     should_find_predecessor_with_gaps_u4096();
+    should_find_successor_crossing_low_u4096();
     should_find_predecessor_crossing_low_u4096();
     should_find_predecessor_on_singleton_u4096();
     should_ignore_duplicate_insert_u4096();
