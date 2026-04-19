@@ -146,6 +146,28 @@ void should_return_null_on_empty_tree_u4096()
     vebtree_free(tree);
 }
 
+void should_delegate_to_leaf_successor_in_small_tree_u64()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 6, 0);
+    assert(vebtree_is_leaf(tree));
+
+    vebtree_insert_key(tree, 3);
+    vebtree_insert_key(tree, 17);
+    vebtree_insert_key(tree, 42);
+
+    assert(vebtree_successor(tree, 0) == 3);
+    assert(vebtree_successor(tree, 2) == 3);
+    assert(vebtree_successor(tree, 3) == 17);
+    assert(vebtree_successor(tree, 16) == 17);
+    assert(vebtree_successor(tree, 17) == 42);
+    assert(vebtree_successor(tree, 41) == 42);
+    assert(vebtree_successor(tree, 42) == vebtree_null);
+    assert(vebtree_successor(tree, 62) == vebtree_null);
+
+    vebtree_free(tree);
+}
+
 void should_delegate_to_leaf_in_small_tree_u64()
 {
     VebTree* tree;
@@ -364,6 +386,7 @@ int main(int argc, char** argv)
     should_handle_bit_zero_in_bitwise_leaf_predecessor();
     should_return_null_on_empty_tree_successor_u4096();
     should_return_null_on_empty_tree_u4096();
+    should_delegate_to_leaf_successor_in_small_tree_u64();
     should_delegate_to_leaf_in_small_tree_u64();
     should_find_predecessor_in_fully_alloc_tree_u4096();
     should_find_predecessor_with_gaps_u4096();
