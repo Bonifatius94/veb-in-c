@@ -408,7 +408,7 @@ void _ensure_subtrees(VebTree* tree)
 
 void vebtree_free(VebTree* tree)
 {
-    size_t i; vebkey_t num_locals;
+    size_t i; vebkey_t num_locals, g;
 
     /* recursion anchor for tree leafs */
     if (vebtree_is_leaf(tree))
@@ -418,11 +418,18 @@ void vebtree_free(VebTree* tree)
     if (tree->global == NULL)
         return;
 
-    /* recursion case for child trees */
+    /* recursion case for child trees; under LAZY only initialized slots
+       are walked (global summary is the authoritative initialized set) */
+    if (vebtree_is_lazy(tree)) {
+        for (g = vebtree_get_min(tree->global); g != vebtree_null;
+                g = vebtree_successor(tree->global, g))
+            vebtree_free(&(tree->locals[g]));
+    } else {
+        num_locals = vebtree_universe_maxvalue(tree->upper_bits);
+        for (i = 0; i < num_locals; i++)
+            vebtree_free(&(tree->locals[i]));
+    }
     vebtree_free(tree->global);
-    num_locals = vebtree_universe_maxvalue(tree->upper_bits);
-    for (i = 0; i < num_locals; i++)
-        vebtree_free(&(tree->locals[i]));
 
     /* local memory deallocation */
     free(tree->global);
@@ -480,8 +487,10 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
     local_key = vebtree_local_address(key, tree->lower_bits);
     global_key = vebtree_global_address(key, tree->lower_bits);
 
-    /* case where a local contains the successor */
-    if (vebtree_get_max(&(tree->locals[global_key])) != vebtree_null &&
+    /* case where a local contains the successor;
+       global.contains(global_key) gates the local read so uninit lazy
+       slots are skipped (and for non-lazy, is equivalent to !is_empty) */
+    if (vebtree_contains_key(tree->global, global_key) &&
             local_key < vebtree_get_max(&(tree->locals[global_key])))
         return (global_key << tree->lower_bits) |
             (vebtree_successor(&(tree->locals[global_key]), local_key));
@@ -515,8 +524,10 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
     local_key = vebtree_local_address(key, tree->lower_bits);
     global_key = vebtree_global_address(key, tree->lower_bits);
 
-    /* case where a local contains the predecessor */
-    if (vebtree_get_min(&(tree->locals[global_key])) != vebtree_null &&
+    /* case where a local contains the predecessor;
+       global.contains(global_key) gates the local read so uninit lazy
+       slots are skipped (and for non-lazy, is equivalent to !is_empty) */
+    if (vebtree_contains_key(tree->global, global_key) &&
             local_key > vebtree_get_min(&(tree->locals[global_key])))
         return (global_key << tree->lower_bits) |
             (vebtree_predecessor(&(tree->locals[global_key]), local_key));
