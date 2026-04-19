@@ -218,6 +218,24 @@ void should_find_predecessor_in_fully_alloc_tree_u4096()
     vebtree_free(tree);
 }
 
+void should_find_successor_with_gaps_u4096()
+{
+    size_t i; VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    for (i = 1; i < 4096; i += 2)
+        vebtree_insert_key(tree, i);
+
+    assert(vebtree_successor(tree, 4095) == vebtree_null);
+    assert(vebtree_successor(tree, 0) == 1);
+    for (i = 0; i < 4095; i += 2)
+        assert(vebtree_successor(tree, i) == i + 1);
+    for (i = 1; i < 4094; i += 2)
+        assert(vebtree_successor(tree, i) == i + 2);
+
+    vebtree_free(tree);
+}
+
 void should_find_predecessor_with_gaps_u4096()
 {
     size_t i; VebTree* tree;
@@ -405,6 +423,7 @@ int main(int argc, char** argv)
     should_delegate_to_leaf_in_small_tree_u64();
     should_find_successor_in_fully_alloc_tree_u4096();
     should_find_predecessor_in_fully_alloc_tree_u4096();
+    should_find_successor_with_gaps_u4096();
     should_find_predecessor_with_gaps_u4096();
     should_find_predecessor_crossing_low_u4096();
     should_find_predecessor_on_singleton_u4096();
