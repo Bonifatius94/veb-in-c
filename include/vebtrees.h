@@ -339,6 +339,7 @@ uint8_t vebtree_required_universe_bits(vebkey_t max_key)
 }
 
 void _init_subtrees(VebTree* tree, uint8_t flags);
+void _ensure_subtrees(VebTree* tree);
 void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_memeff_root);
 
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
@@ -389,10 +390,20 @@ void _init_subtrees(VebTree* tree, uint8_t flags)
     tree->global = (VebTree*)malloc(sizeof(VebTree));
     _vebtree_init(tree->global, tree->upper_bits, flags, false);
 
-    /* init locals recursively */
+    /* init locals recursively; under LAZY the slots remain uninitialized
+       until first touch, so skip the per-slot init loop */
     tree->locals = (VebTree*)malloc(num_locals * sizeof(VebTree));
-    for (i = 0; i < num_locals; i++)
-        _vebtree_init(tree->locals + i, tree->lower_bits, flags, false);
+    if (!(flags & VEBTREE_FLAG_LAZY)) {
+        for (i = 0; i < num_locals; i++)
+            _vebtree_init(tree->locals + i, tree->lower_bits, flags, false);
+    }
+}
+
+void _ensure_subtrees(VebTree* tree)
+{
+    /* lazy second-insert path: allocate global + locals on first use */
+    if (tree->locals == NULL)
+        _init_subtrees(tree, tree->flags);
 }
 
 void vebtree_free(VebTree* tree)
@@ -428,6 +439,10 @@ bool vebtree_contains_key(VebTree* tree, vebkey_t key)
     /* base case: encountered tree leaf */
     if (vebtree_is_leaf(tree))
         return vebtree_bitwise_leaf_contains_key(tree, key);
+
+    /* lazy 0-or-1-element: low is the only populated slot */
+    if (tree->locals == NULL)
+        return tree->low == key;
 
     /* base case: check if key is low (low is not part of any subtree) */
     if (tree->low == key || tree->high == key)
@@ -533,8 +548,15 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key)
     /* case when the key becomes the new low -> insert old low instead */
     if (key < tree->low) { temp = tree->low; tree->low = key; key = temp; }
 
+    /* lazy: allocate global + locals arrays on first second-element insert */
+    _ensure_subtrees(tree);
+
     local_key = vebtree_local_address(key, tree->lower_bits);
     global_key = vebtree_global_address(key, tree->lower_bits);
+
+    /* lazy: slot may be uninit; init before any read-of-slot */
+    if (vebtree_is_lazy(tree) && !vebtree_contains_key(tree->global, global_key))
+        _vebtree_init(&(tree->locals[global_key]), tree->lower_bits, tree->flags, false);
 
     /* insert the global key if the corresponding local is empty */
     if (vebtree_is_empty(&(tree->locals[global_key])))
