@@ -261,10 +261,10 @@ vebkey_t vebtree_bitwise_leaf_successor(VebTree* tree, vebkey_t key)
 
 vebkey_t vebtree_bitwise_leaf_predecessor(VebTree* tree, vebkey_t key)
 {
-    uint64_t pred_bits, max_pred;
+    uint64_t pred_bits;
     pred_bits = tree->low & trailing_bits_mask((uint8_t)key);
-    max_pred = max_bit_set(pred_bits);
-    return (max_pred == 0 && (tree->low & 1) == 0) ? vebtree_null : max_pred;
+    if (pred_bits == 0) return vebtree_null;
+    return max_bit_set(pred_bits);
 }
 
 void vebtree_bitwise_leaf_insert_key(VebTree* tree, vebkey_t key)
