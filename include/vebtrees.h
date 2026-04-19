@@ -506,6 +506,10 @@ void vebtree_insert_key(VebTree* tree, vebkey_t key)
     vebkey_t global_key, local_key, temp;
     assert(key != vebtree_null && "cannot insert vebtree_null, invalid key!");
 
+    /* idempotence guard: re-inserting a present key would push low into
+       its own subtree and corrupt the "low not in any subtree" invariant */
+    if (vebtree_contains_key(tree, key)) return;
+
     /* base case for tree leafs */
     if (vebtree_is_leaf(tree)) { vebtree_bitwise_leaf_insert_key(tree, key); return; }
 
