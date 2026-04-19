@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Reject commits containing Co-Authored-By trailers.
+# Commits in this repo attribute work to the human committer only.
+
+set -e
+
+commit_msg_file="$1"
+
+if grep -qiE '^Co-Authored-By:' "$commit_msg_file"; then
+    echo "error: Co-Authored-By trailers are not allowed in this repo." >&2
+    echo "       Remove the trailer from your commit message and try again." >&2
+    exit 1
+fi
+
+exit 0

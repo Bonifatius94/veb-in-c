@@ -1,3 +1,5 @@
-build
+/build/
+/plans/
 .vscode
 *html.zip
+.claude/settings.local.json

@@ -32,7 +32,21 @@ git clone https://github.com/Bonifatius94/veb-in-c
 cd veb-in-c
 ```
 
-Next, run the build script. This will execute a bunch of property tests and
+### Git Hooks (one-time)
+
+This repo ships a `commit-msg` hook under `.githooks/` that rejects commits
+containing `Co-Authored-By` trailers (commits attribute work to the human
+committer only). Activate it once per clone:
+
+```sh
+git config core.hooksPath .githooks
+```
+
+No global git config is touched — the setting is local to this clone.
+
+### Build
+
+Run the build script. This will execute a bunch of property tests and
 benchmarks to ensure that the van Emde Boas tree is working as expected.
 
 ```sh
