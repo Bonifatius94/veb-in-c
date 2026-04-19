@@ -29,7 +29,7 @@ If you find yourself wanting to skip or merge phases, stop and re-read this sect
 1. **Fetch and validate the plan.** `gh issue view <N>`. Confirm it matches the refined-plan template. Bail with a clear message if it doesn't.
 2. **Read the guardrails.** `CLAUDE.md` (invariants, coding standards, gotchas) and `ROADMAP.md` (context for where this fits). Do this every run — do not assume memory of them.
 3. **Check working tree is clean.** `git status`. If there are uncommitted changes unrelated to this issue, stop and ask the user what to do.
-4. **Create a branch.** `git checkout -b issue-<N>-<short-slug>` from `main` (or the repo's default branch). Slug derives from the issue title.
+4. **Work on `main` directly — do not create a feature branch.** This is a solo-dev project and the RGR commit sequence (`red:` / `green:` / `refactor:`) is the review trail; PRs and feature branches add no value. The red/green/refactor prefixes already make the methodology legible in the linear history.
 
 If the plan's "Test plan" section is empty or vague, **stop** — you can't run TDD without a concrete test. Go back and `/refine` the issue.
 
@@ -117,8 +117,8 @@ The plan's **Test plan** section is a list of test cases. For each test case, ru
 
 ## After the loop
 
-1. **Report back.** Branch name, the red/green/refactor commit sequence (with short hashes and subjects), test status, any deviations from the plan and why.
-2. **Stop.** Do not push, do not open a PR, do not close the issue. Those require explicit user confirmation.
+1. **Report back.** The red/green/refactor commit sequence (with short hashes and subjects) on `main`, test status, any deviations from the plan and why.
+2. **Stop.** Do not push, do not open a PR, do not close the issue. Those require explicit user confirmation. This is a solo-dev repo — PRs are not part of the workflow.
 
 ## Rules (apply throughout)
 
