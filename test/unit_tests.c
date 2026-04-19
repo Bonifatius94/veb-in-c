@@ -26,6 +26,32 @@ void should_create_fully_alloc_tree_u4096()
     vebtree_free(tree);
 }
 
+void should_round_trip_odd_universe_u8192()
+{
+    size_t i; VebTree* tree;
+    vebtree_init(&tree, 13, 0);
+    assert(vebtree_is_empty(tree));
+
+    for (i = 0; i < 8192; i++)
+        vebtree_insert_key(tree, i);
+
+    assert(vebtree_get_min(tree) == 0);
+    assert(vebtree_get_max(tree) == 8191);
+    assert(vebtree_successor(tree, 0) == 1);
+    assert(vebtree_successor(tree, 4095) == 4096);
+    assert(vebtree_successor(tree, 8190) == 8191);
+    assert(vebtree_predecessor(tree, 1) == 0);
+    assert(vebtree_predecessor(tree, 4096) == 4095);
+    assert(vebtree_predecessor(tree, 8191) == 8190);
+    assert(vebtree_predecessor(tree, 0) == vebtree_null);
+
+    for (i = 0; i < 8192; i++)
+        vebtree_delete_key(tree, i);
+    assert(vebtree_is_empty(tree));
+
+    vebtree_free(tree);
+}
+
 void should_round_trip_odd_universe_u128()
 {
     size_t i; VebTree* tree;
@@ -474,6 +500,7 @@ int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
     should_round_trip_odd_universe_u128();
+    should_round_trip_odd_universe_u8192();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
     should_handle_bit_zero_in_bitwise_leaf_successor();
