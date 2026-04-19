@@ -636,6 +636,32 @@ void should_lazy_handle_single_insert_u4096()
     vebtree_free(tree);
 }
 
+void should_lazy_round_trip_u4096()
+{
+    size_t i; VebTree* tree;
+    vebtree_init(&tree, 12, VEBTREE_FLAG_LAZY);
+    assert(vebtree_is_empty(tree));
+
+    for (i = 0; i < 4096; i++) {
+        assert(!vebtree_contains_key(tree, i));
+        vebtree_insert_key(tree, i);
+        assert(vebtree_contains_key(tree, i));
+        assert(!vebtree_is_empty(tree));
+    }
+
+    for (i = 0; i < 4096; i++)
+        assert(vebtree_contains_key(tree, i));
+
+    for (i = 0; i < 4096; i++) {
+        assert(vebtree_contains_key(tree, i));
+        vebtree_delete_key(tree, i);
+        assert(!vebtree_contains_key(tree, i));
+    }
+
+    assert(vebtree_is_empty(tree));
+    vebtree_free(tree);
+}
+
 void should_compute_required_universe_bits()
 {
     /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
@@ -682,6 +708,7 @@ int main(int argc, char** argv)
     should_ignore_delete_absent_on_leaf_u64();
     should_init_lazy_tree_never_touched_u24();
     should_lazy_handle_single_insert_u4096();
+    should_lazy_round_trip_u4096();
     should_compute_required_universe_bits();
     return 0;
 }
