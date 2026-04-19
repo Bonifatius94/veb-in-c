@@ -724,6 +724,29 @@ void should_lazy_slot_reinit_after_empty_u4096()
     vebtree_free(tree);
 }
 
+void should_lazy_free_after_inserts_u24()
+{
+    size_t i; VebTree* tree;
+    vebkey_t keys[50];
+    vebtree_init(&tree, 24, VEBTREE_FLAG_LAZY);
+
+    /* sparse inserts: 50 keys across a 16M universe */
+    for (i = 0; i < 50; i++) {
+        keys[i] = (vebkey_t)(i * 300007);
+        vebtree_insert_key(tree, keys[i]);
+    }
+    for (i = 0; i < 50; i++)
+        assert(vebtree_contains_key(tree, keys[i]));
+
+    /* delete all - clusters free their sub-allocations as they empty */
+    for (i = 0; i < 50; i++)
+        vebtree_delete_key(tree, keys[i]);
+    assert(vebtree_is_empty(tree));
+
+    /* free must traverse the global summary safely on an empty-but-allocated tree */
+    vebtree_free(tree);
+}
+
 void should_compute_required_universe_bits()
 {
     /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
@@ -773,6 +796,7 @@ int main(int argc, char** argv)
     should_lazy_round_trip_u4096();
     should_lazy_sparse_inserts_u24();
     should_lazy_slot_reinit_after_empty_u4096();
+    should_lazy_free_after_inserts_u24();
     should_compute_required_universe_bits();
     return 0;
 }
