@@ -79,10 +79,33 @@ void should_delete_from_fully_alloc_tree_u4096()
     vebtree_free(tree);
 }
 
+void should_handle_bit_zero_in_bitwise_leaf_predecessor()
+{
+    VebTree leaf;
+
+    /* empty leaf: predecessor of any key must be vebtree_null */
+    leaf = vebtree_new_empty_bitwise_leaf(6);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 1) == vebtree_null);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 5) == vebtree_null);
+
+    /* only bit 5 set: predecessor of 1 has no answer, must be null */
+    vebtree_bitwise_leaf_insert_key(&leaf, 5);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 1) == vebtree_null);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 5) == vebtree_null);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 6) == 5);
+
+    /* only bit 0 set: predecessor of 1 is 0 (bit 0 is a valid answer) */
+    leaf = vebtree_new_empty_bitwise_leaf(6);
+    vebtree_bitwise_leaf_insert_key(&leaf, 0);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 1) == 0);
+    assert(vebtree_bitwise_leaf_predecessor(&leaf, 0) == vebtree_null);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
+    should_handle_bit_zero_in_bitwise_leaf_predecessor();
     return 0;
 }
