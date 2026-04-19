@@ -286,7 +286,6 @@ void vebtree_bitwise_leaf_delete_key(VebTree* tree, vebkey_t key)
 #define VEBTREE_FLAG_LEAF 1
 #define VEBTREE_FLAG_LAZY 2
 #define VEBTREE_DEFAULT_FLAGS 0
-/* TODO: enable lazy mode once the implementation is ready */
 
 #define vebtree_is_leaf(tree) ((tree)->universe_bits <= VEBTREE_LEAF_BITS)
 #define vebtree_is_lazy(tree) ((tree)->flags & VEBTREE_FLAG_LAZY)
