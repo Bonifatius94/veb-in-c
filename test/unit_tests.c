@@ -196,6 +196,72 @@ void should_find_predecessor_on_singleton_u4096()
     vebtree_free(tree);
 }
 
+void should_ignore_duplicate_insert_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    vebtree_insert_key(tree, 10);
+    vebtree_insert_key(tree, 100);
+    vebtree_insert_key(tree, 1000);
+
+    /* re-insert each key - must be a no-op */
+    vebtree_insert_key(tree, 10);
+    vebtree_insert_key(tree, 100);
+    vebtree_insert_key(tree, 1000);
+
+    assert(vebtree_contains_key(tree, 10));
+    assert(vebtree_contains_key(tree, 100));
+    assert(vebtree_contains_key(tree, 1000));
+    assert(vebtree_get_min(tree) == 10);
+    assert(vebtree_get_max(tree) == 1000);
+
+    /* deleting each should cleanly empty the tree;
+       if any re-insert corrupted the subtree structure,
+       delete leaves stale state behind */
+    vebtree_delete_key(tree, 10);
+    vebtree_delete_key(tree, 100);
+    vebtree_delete_key(tree, 1000);
+
+    assert(vebtree_is_empty(tree));
+    assert(!vebtree_contains_key(tree, 10));
+    assert(!vebtree_contains_key(tree, 100));
+    assert(!vebtree_contains_key(tree, 1000));
+    assert(vebtree_get_min(tree) == vebtree_null);
+    assert(vebtree_get_max(tree) == vebtree_null);
+
+    vebtree_free(tree);
+}
+
+void should_ignore_duplicate_insert_on_low_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    vebtree_insert_key(tree, 5);
+    vebtree_insert_key(tree, 50);
+    vebtree_insert_key(tree, 500);
+
+    /* re-inserting the current low is the canonical corruption case:
+       unguarded insert pushes low into locals[0], violating the
+       "low not in any subtree" invariant */
+    vebtree_insert_key(tree, 5);
+
+    assert(vebtree_get_min(tree) == 5);
+    assert(vebtree_get_max(tree) == 500);
+
+    /* delete the low - on a corrupted tree the new low is pulled
+       from the polluted subtree, leaving tree->low == 5 */
+    vebtree_delete_key(tree, 5);
+
+    assert(!vebtree_contains_key(tree, 5));
+    assert(vebtree_get_min(tree) == 50);
+    assert(vebtree_contains_key(tree, 50));
+    assert(vebtree_contains_key(tree, 500));
+
+    vebtree_free(tree);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
@@ -208,5 +274,7 @@ int main(int argc, char** argv)
     should_find_predecessor_with_gaps_u4096();
     should_find_predecessor_crossing_low_u4096();
     should_find_predecessor_on_singleton_u4096();
+    should_ignore_duplicate_insert_u4096();
+    should_ignore_duplicate_insert_on_low_u4096();
     return 0;
 }
