@@ -262,6 +262,39 @@ void should_ignore_duplicate_insert_on_low_u4096()
     vebtree_free(tree);
 }
 
+void should_ignore_delete_absent_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    /* delete from empty tree - no-op */
+    vebtree_delete_key(tree, 7);
+    assert(vebtree_is_empty(tree));
+
+    /* single-element tree: unguarded delete-absent wipes the entry
+       because the "tree->low == tree->high" branch fires regardless
+       of whether the key matches */
+    vebtree_insert_key(tree, 42);
+    vebtree_delete_key(tree, 7);
+    assert(vebtree_contains_key(tree, 42));
+    assert(vebtree_get_min(tree) == 42);
+    assert(vebtree_get_max(tree) == 42);
+
+    /* populated tree: delete-absent must not disturb other keys */
+    vebtree_insert_key(tree, 100);
+    vebtree_insert_key(tree, 1000);
+    vebtree_delete_key(tree, 7);
+    vebtree_delete_key(tree, 200);
+    vebtree_delete_key(tree, 2000);
+    assert(vebtree_contains_key(tree, 42));
+    assert(vebtree_contains_key(tree, 100));
+    assert(vebtree_contains_key(tree, 1000));
+    assert(vebtree_get_min(tree) == 42);
+    assert(vebtree_get_max(tree) == 1000);
+
+    vebtree_free(tree);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
@@ -276,5 +309,6 @@ int main(int argc, char** argv)
     should_find_predecessor_on_singleton_u4096();
     should_ignore_duplicate_insert_u4096();
     should_ignore_duplicate_insert_on_low_u4096();
+    should_ignore_delete_absent_u4096();
     return 0;
 }
