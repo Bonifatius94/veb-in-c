@@ -608,8 +608,13 @@ void vebtree_delete_key(VebTree* tree, vebkey_t key)
     /* delete the local key recursively */
     vebtree_delete_key(&(tree->locals[global_key]), local_key);
 
-    if (vebtree_is_empty(&(tree->locals[global_key])))
+    if (vebtree_is_empty(&(tree->locals[global_key]))) {
+        /* under LAZY: release slot's sub-allocations so the global summary
+           remains the authoritative "initialized slot" map */
+        if (vebtree_is_lazy(tree))
+            vebtree_free(&(tree->locals[global_key]));
         vebtree_delete_key(tree->global, global_key);
+    }
 
     /* in case the maximum was deleted -> find new maximum */
     if (key == tree->high) {
