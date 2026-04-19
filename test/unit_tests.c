@@ -79,6 +79,29 @@ void should_delete_from_fully_alloc_tree_u4096()
     vebtree_free(tree);
 }
 
+void should_handle_bit_zero_in_bitwise_leaf_successor()
+{
+    VebTree leaf;
+
+    /* empty leaf: successor of any key must be vebtree_null */
+    leaf = vebtree_new_empty_bitwise_leaf(6);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 0) == vebtree_null);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 5) == vebtree_null);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 62) == vebtree_null);
+
+    /* only bit 5 set: successor crosses from 4 to 5, saturates past 5 */
+    vebtree_bitwise_leaf_insert_key(&leaf, 5);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 0) == 5);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 4) == 5);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 5) == vebtree_null);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 6) == vebtree_null);
+
+    /* only bit 0 set: no bit above 0, successor of 0 is null */
+    leaf = vebtree_new_empty_bitwise_leaf(6);
+    vebtree_bitwise_leaf_insert_key(&leaf, 0);
+    assert(vebtree_bitwise_leaf_successor(&leaf, 0) == vebtree_null);
+}
+
 void should_handle_bit_zero_in_bitwise_leaf_predecessor()
 {
     VebTree leaf;
@@ -326,6 +349,7 @@ int main(int argc, char** argv)
     should_create_fully_alloc_tree_u4096();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
+    should_handle_bit_zero_in_bitwise_leaf_successor();
     should_handle_bit_zero_in_bitwise_leaf_predecessor();
     should_return_null_on_empty_tree_u4096();
     should_delegate_to_leaf_in_small_tree_u64();
