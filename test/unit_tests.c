@@ -662,6 +662,39 @@ void should_lazy_round_trip_u4096()
     vebtree_free(tree);
 }
 
+void should_lazy_sparse_inserts_u24()
+{
+    size_t i; VebTree* tree;
+    vebkey_t keys[500];
+    vebtree_init(&tree, 24, VEBTREE_FLAG_LAZY);
+    assert(vebtree_is_empty(tree));
+
+    for (i = 0; i < 500; i++) {
+        keys[i] = (vebkey_t)(i * 33331);
+        assert(!vebtree_contains_key(tree, keys[i]));
+        vebtree_insert_key(tree, keys[i]);
+        assert(vebtree_contains_key(tree, keys[i]));
+    }
+
+    assert(vebtree_get_min(tree) == 0);
+    assert(vebtree_get_max(tree) == (vebkey_t)(499 * 33331));
+
+    for (i = 0; i < 499; i++)
+        assert(vebtree_successor(tree, keys[i]) == keys[i + 1]);
+    for (i = 1; i < 500; i++)
+        assert(vebtree_predecessor(tree, keys[i]) == keys[i - 1]);
+    assert(vebtree_predecessor(tree, keys[0]) == vebtree_null);
+
+    for (i = 500; i > 0; i--) {
+        assert(vebtree_contains_key(tree, keys[i - 1]));
+        vebtree_delete_key(tree, keys[i - 1]);
+        assert(!vebtree_contains_key(tree, keys[i - 1]));
+    }
+    assert(vebtree_is_empty(tree));
+
+    vebtree_free(tree);
+}
+
 void should_compute_required_universe_bits()
 {
     /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
@@ -709,6 +742,7 @@ int main(int argc, char** argv)
     should_init_lazy_tree_never_touched_u24();
     should_lazy_handle_single_insert_u4096();
     should_lazy_round_trip_u4096();
+    should_lazy_sparse_inserts_u24();
     should_compute_required_universe_bits();
     return 0;
 }
