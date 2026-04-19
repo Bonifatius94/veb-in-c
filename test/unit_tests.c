@@ -407,6 +407,38 @@ void should_find_predecessor_on_singleton_u4096()
     vebtree_free(tree);
 }
 
+void should_handle_two_element_tree_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    vebtree_insert_key(tree, 10);
+    vebtree_insert_key(tree, 200);
+
+    assert(vebtree_contains_key(tree, 10));
+    assert(vebtree_contains_key(tree, 200));
+    assert(vebtree_get_min(tree) == 10);
+    assert(vebtree_get_max(tree) == 200);
+    assert(vebtree_successor(tree, 10) == 200);
+    assert(vebtree_successor(tree, 200) == vebtree_null);
+    assert(vebtree_predecessor(tree, 200) == 10);
+    assert(vebtree_predecessor(tree, 10) == vebtree_null);
+
+    /* delete low -> singleton with the former high */
+    vebtree_delete_key(tree, 10);
+    assert(!vebtree_contains_key(tree, 10));
+    assert(vebtree_contains_key(tree, 200));
+    assert(vebtree_get_min(tree) == 200);
+    assert(vebtree_get_max(tree) == 200);
+
+    /* delete high -> empty */
+    vebtree_delete_key(tree, 200);
+    assert(!vebtree_contains_key(tree, 200));
+    assert(vebtree_is_empty(tree));
+
+    vebtree_free(tree);
+}
+
 void should_ignore_duplicate_insert_u4096()
 {
     VebTree* tree;
@@ -554,6 +586,7 @@ int main(int argc, char** argv)
     should_find_predecessor_crossing_low_u4096();
     should_find_successor_on_singleton_u4096();
     should_find_predecessor_on_singleton_u4096();
+    should_handle_two_element_tree_u4096();
     should_ignore_duplicate_insert_u4096();
     should_ignore_duplicate_insert_on_low_u4096();
     should_ignore_delete_absent_u4096();
