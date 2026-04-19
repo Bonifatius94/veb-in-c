@@ -101,11 +101,44 @@ void should_handle_bit_zero_in_bitwise_leaf_predecessor()
     assert(vebtree_bitwise_leaf_predecessor(&leaf, 0) == vebtree_null);
 }
 
+void should_return_null_on_empty_tree_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+    assert(vebtree_is_empty(tree));
+    assert(vebtree_predecessor(tree, 100) == vebtree_null);
+    assert(vebtree_predecessor(tree, 1) == vebtree_null);
+    assert(vebtree_predecessor(tree, 4095) == vebtree_null);
+    vebtree_free(tree);
+}
+
+void should_delegate_to_leaf_in_small_tree_u64()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 6, 0);
+    assert(vebtree_is_leaf(tree));
+
+    vebtree_insert_key(tree, 3);
+    vebtree_insert_key(tree, 17);
+    vebtree_insert_key(tree, 42);
+
+    assert(vebtree_predecessor(tree, 42) == 17);
+    assert(vebtree_predecessor(tree, 18) == 17);
+    assert(vebtree_predecessor(tree, 17) == 3);
+    assert(vebtree_predecessor(tree, 4) == 3);
+    assert(vebtree_predecessor(tree, 3) == vebtree_null);
+    assert(vebtree_predecessor(tree, 63) == 42);
+
+    vebtree_free(tree);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
     should_handle_bit_zero_in_bitwise_leaf_predecessor();
+    should_return_null_on_empty_tree_u4096();
+    should_delegate_to_leaf_in_small_tree_u64();
     return 0;
 }
