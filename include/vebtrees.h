@@ -448,6 +448,10 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
     if (vebtree_is_leaf(tree))
         return vebtree_bitwise_leaf_successor(tree, key);
 
+    /* base case: no successor exists when key is at or past the maximum */
+    if (tree->high != vebtree_null && key >= tree->high)
+        return vebtree_null;
+
     /* base case for predecessor in neighbour local -> low is the successor */
     if (tree->low != vebtree_null && key < tree->low)
         return tree->low;
