@@ -26,7 +26,33 @@ void should_create_fully_alloc_tree_u4096()
     vebtree_free(tree);
 }
 
-/* TODO: add test case for trees managing odd universe bits */
+void should_round_trip_odd_universe_u128()
+{
+    size_t i; VebTree* tree;
+    vebtree_init(&tree, 7, 0);
+    assert(vebtree_is_empty(tree));
+
+    for (i = 0; i < 128; i++) {
+        assert(!vebtree_contains_key(tree, i));
+        vebtree_insert_key(tree, i);
+        assert(vebtree_contains_key(tree, i));
+    }
+
+    assert(vebtree_get_min(tree) == 0);
+    assert(vebtree_get_max(tree) == 127);
+    for (i = 0; i < 127; i++)
+        assert(vebtree_successor(tree, i) == i + 1);
+    for (i = 1; i < 128; i++)
+        assert(vebtree_predecessor(tree, i) == i - 1);
+
+    for (i = 0; i < 128; i++) {
+        vebtree_delete_key(tree, i);
+        assert(!vebtree_contains_key(tree, i));
+    }
+    assert(vebtree_is_empty(tree));
+
+    vebtree_free(tree);
+}
 
 void should_insert_into_fully_alloc_tree_u4096()
 {
@@ -447,6 +473,7 @@ void should_ignore_delete_absent_on_leaf_u64()
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
+    should_round_trip_odd_universe_u128();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
     should_handle_bit_zero_in_bitwise_leaf_successor();
