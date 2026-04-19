@@ -52,6 +52,42 @@ void should_round_trip_odd_universe_u8192()
     vebtree_free(tree);
 }
 
+void should_handle_deep_recursion_u24()
+{
+    size_t i; VebTree* tree;
+    vebkey_t keys[500];
+    vebtree_init(&tree, 24, 0);
+    assert(vebtree_is_empty(tree));
+
+    /* sparse keys spread across the 16M universe;
+       exercises tree->global as itself an internal (non-leaf) node */
+    for (i = 0; i < 500; i++) {
+        keys[i] = (vebkey_t)(i * 33331);
+        assert(!vebtree_contains_key(tree, keys[i]));
+        vebtree_insert_key(tree, keys[i]);
+        assert(vebtree_contains_key(tree, keys[i]));
+    }
+
+    assert(vebtree_get_min(tree) == 0);
+    assert(vebtree_get_max(tree) == (vebkey_t)(499 * 33331));
+
+    for (i = 0; i < 499; i++)
+        assert(vebtree_successor(tree, keys[i]) == keys[i + 1]);
+    for (i = 1; i < 500; i++)
+        assert(vebtree_predecessor(tree, keys[i]) == keys[i - 1]);
+    assert(vebtree_predecessor(tree, keys[0]) == vebtree_null);
+
+    /* delete in reverse-insertion order */
+    for (i = 500; i > 0; i--) {
+        assert(vebtree_contains_key(tree, keys[i - 1]));
+        vebtree_delete_key(tree, keys[i - 1]);
+        assert(!vebtree_contains_key(tree, keys[i - 1]));
+    }
+    assert(vebtree_is_empty(tree));
+
+    vebtree_free(tree);
+}
+
 void should_round_trip_odd_universe_u128()
 {
     size_t i; VebTree* tree;
@@ -501,6 +537,7 @@ int main(int argc, char** argv)
     should_create_fully_alloc_tree_u4096();
     should_round_trip_odd_universe_u128();
     should_round_trip_odd_universe_u8192();
+    should_handle_deep_recursion_u24();
     should_insert_into_fully_alloc_tree_u4096();
     should_delete_from_fully_alloc_tree_u4096();
     should_handle_bit_zero_in_bitwise_leaf_successor();
