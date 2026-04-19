@@ -485,6 +485,10 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
     if (vebtree_is_leaf(tree))
         return vebtree_bitwise_leaf_predecessor(tree, key);
 
+    /* lazy 0-or-1-element: predecessor via tree->low only */
+    if (tree->locals == NULL)
+        return (tree->low != vebtree_null && key > tree->low) ? tree->low : vebtree_null;
+
     /* base case: stop recursion when tree is empty */
     if (vebtree_is_empty(tree))
         return vebtree_null;
