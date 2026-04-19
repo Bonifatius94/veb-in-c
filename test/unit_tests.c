@@ -599,6 +599,20 @@ void should_ignore_delete_absent_on_leaf_u64()
     vebtree_free(tree);
 }
 
+void should_init_lazy_tree_never_touched_u24()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 24, VEBTREE_FLAG_LAZY);
+
+    /* lazy init: root struct allocated, children deferred */
+    assert(tree->global == NULL);
+    assert(tree->locals == NULL);
+    assert(vebtree_is_empty(tree));
+
+    /* free on a never-touched lazy tree must not segfault */
+    vebtree_free(tree);
+}
+
 void should_compute_required_universe_bits()
 {
     /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
@@ -643,6 +657,7 @@ int main(int argc, char** argv)
     should_ignore_duplicate_insert_on_low_u4096();
     should_ignore_delete_absent_u4096();
     should_ignore_delete_absent_on_leaf_u64();
+    should_init_lazy_tree_never_touched_u24();
     should_compute_required_universe_bits();
     return 0;
 }
