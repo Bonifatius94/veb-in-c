@@ -132,6 +132,21 @@ void should_delegate_to_leaf_in_small_tree_u64()
     vebtree_free(tree);
 }
 
+void should_find_predecessor_in_fully_alloc_tree_u4096()
+{
+    size_t i; VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    for (i = 0; i < 4096; i++)
+        vebtree_insert_key(tree, i);
+
+    assert(vebtree_predecessor(tree, 0) == vebtree_null);
+    for (i = 1; i < 4096; i++)
+        assert(vebtree_predecessor(tree, i) == i - 1);
+
+    vebtree_free(tree);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
@@ -140,5 +155,6 @@ int main(int argc, char** argv)
     should_handle_bit_zero_in_bitwise_leaf_predecessor();
     should_return_null_on_empty_tree_u4096();
     should_delegate_to_leaf_in_small_tree_u64();
+    should_find_predecessor_in_fully_alloc_tree_u4096();
     return 0;
 }
