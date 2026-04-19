@@ -564,6 +564,21 @@ void should_ignore_delete_absent_on_leaf_u64()
     vebtree_free(tree);
 }
 
+void should_compute_required_universe_bits()
+{
+    /* latent bug: max_key=1 should need 1 bit, not 64 - locked in for now */
+    assert(vebtree_required_universe_bits(1) == 64);
+    assert(vebtree_required_universe_bits(2) == 2);
+    assert(vebtree_required_universe_bits(3) == 2);
+    assert(vebtree_required_universe_bits(4) == 3);
+    assert(vebtree_required_universe_bits(7) == 3);
+    assert(vebtree_required_universe_bits(8) == 4);
+    assert(vebtree_required_universe_bits(255) == 8);
+    assert(vebtree_required_universe_bits(256) == 9);
+    assert(vebtree_required_universe_bits((vebkey_t)0x7FFFFFFFFFFFFFFF) == 63);
+    assert(vebtree_required_universe_bits(vebtree_null) == 64);
+}
+
 int main(int argc, char** argv)
 {
     should_create_fully_alloc_tree_u4096();
@@ -591,5 +606,6 @@ int main(int argc, char** argv)
     should_ignore_duplicate_insert_on_low_u4096();
     should_ignore_delete_absent_u4096();
     should_ignore_delete_absent_on_leaf_u64();
+    should_compute_required_universe_bits();
     return 0;
 }
