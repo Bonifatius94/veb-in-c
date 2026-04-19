@@ -124,6 +124,17 @@ void should_handle_bit_zero_in_bitwise_leaf_predecessor()
     assert(vebtree_bitwise_leaf_predecessor(&leaf, 0) == vebtree_null);
 }
 
+void should_return_null_on_empty_tree_successor_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+    assert(vebtree_is_empty(tree));
+    assert(vebtree_successor(tree, 0) == vebtree_null);
+    assert(vebtree_successor(tree, 100) == vebtree_null);
+    assert(vebtree_successor(tree, 4094) == vebtree_null);
+    vebtree_free(tree);
+}
+
 void should_return_null_on_empty_tree_u4096()
 {
     VebTree* tree;
@@ -351,6 +362,7 @@ int main(int argc, char** argv)
     should_delete_from_fully_alloc_tree_u4096();
     should_handle_bit_zero_in_bitwise_leaf_successor();
     should_handle_bit_zero_in_bitwise_leaf_predecessor();
+    should_return_null_on_empty_tree_successor_u4096();
     should_return_null_on_empty_tree_u4096();
     should_delegate_to_leaf_in_small_tree_u64();
     should_find_predecessor_in_fully_alloc_tree_u4096();
