@@ -291,6 +291,20 @@ void should_find_predecessor_crossing_low_u4096()
     vebtree_free(tree);
 }
 
+void should_find_successor_on_singleton_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+    vebtree_insert_key(tree, 42);
+
+    assert(vebtree_successor(tree, 0) == 42);
+    assert(vebtree_successor(tree, 41) == 42);
+    assert(vebtree_successor(tree, 42) == vebtree_null);
+    assert(vebtree_successor(tree, 100) == vebtree_null);
+
+    vebtree_free(tree);
+}
+
 void should_find_predecessor_on_singleton_u4096()
 {
     VebTree* tree;
@@ -447,6 +461,7 @@ int main(int argc, char** argv)
     should_find_predecessor_with_gaps_u4096();
     should_find_successor_crossing_low_u4096();
     should_find_predecessor_crossing_low_u4096();
+    should_find_successor_on_singleton_u4096();
     should_find_predecessor_on_singleton_u4096();
     should_ignore_duplicate_insert_u4096();
     should_ignore_duplicate_insert_on_low_u4096();
