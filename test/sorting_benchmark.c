@@ -27,6 +27,24 @@ void sort_veb_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
     vebtree_free(tree);
 }
 
+void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
+{
+    size_t i; VebTree* tree; uint8_t uni_bits;
+
+    uni_bits = vebtree_required_universe_bits(num_keys);
+    vebtree_init(&tree, uni_bits, VEBTREE_DEFAULT_FLAGS);
+
+    for (i = 0; i < num_keys; i++)
+        vebtree_insert_key(tree, keys[i]);
+
+    /* fill ascending output by walking predecessors from max down */
+    output[num_keys - 1] = vebtree_get_max(tree);
+    for (i = num_keys - 1; i > 0; i--)
+        output[i - 1] = vebtree_predecessor(tree, output[i]);
+
+    vebtree_free(tree);
+}
+
 /* ====================================================
  *                Q U I C K   S O R T
  * ==================================================== */
@@ -108,8 +126,11 @@ int main(int argc, char** argv)
 {
     size_t num_keys = 500000, test_runs = 100;
 
-    printf("Veb sorting took %lf milliseconds\n",
+    printf("Veb sorting (successor) took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&sort_veb_succ, num_keys, test_runs));
+
+    printf("Veb sorting (predecessor) took %lf milliseconds\n",
+           benchmark_sort_algo_in_ms(&sort_veb_pred, num_keys, test_runs));
 
     printf("Quicksort took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&quick_sort, num_keys, test_runs));
