@@ -486,10 +486,12 @@ vebkey_t vebtree_successor(VebTree* tree, vebkey_t key)
     local_key = vebtree_local_address(key, tree->lower_bits);
     global_key = vebtree_global_address(key, tree->lower_bits);
 
-    /* case where a local contains the successor;
-       global.contains(global_key) gates the local read so uninit lazy
-       slots are skipped (and for non-lazy, is equivalent to !is_empty) */
-    if (vebtree_contains_key(tree->global, global_key) &&
+    /* case where a local contains the successor; under LAZY we must
+       consult the global summary since the slot may be uninit, while
+       under non-lazy the cheaper !is_empty read is safe and equivalent */
+    if ((vebtree_is_lazy(tree)
+            ? vebtree_contains_key(tree->global, global_key)
+            : !vebtree_is_empty(&(tree->locals[global_key]))) &&
             local_key < vebtree_get_max(&(tree->locals[global_key])))
         return (global_key << tree->lower_bits) |
             (vebtree_successor(&(tree->locals[global_key]), local_key));
@@ -523,10 +525,12 @@ vebkey_t vebtree_predecessor(VebTree* tree, vebkey_t key)
     local_key = vebtree_local_address(key, tree->lower_bits);
     global_key = vebtree_global_address(key, tree->lower_bits);
 
-    /* case where a local contains the predecessor;
-       global.contains(global_key) gates the local read so uninit lazy
-       slots are skipped (and for non-lazy, is equivalent to !is_empty) */
-    if (vebtree_contains_key(tree->global, global_key) &&
+    /* case where a local contains the predecessor; under LAZY we must
+       consult the global summary since the slot may be uninit, while
+       under non-lazy the cheaper !is_empty read is safe and equivalent */
+    if ((vebtree_is_lazy(tree)
+            ? vebtree_contains_key(tree->global, global_key)
+            : !vebtree_is_empty(&(tree->locals[global_key]))) &&
             local_key > vebtree_get_min(&(tree->locals[global_key])))
         return (global_key << tree->lower_bits) |
             (vebtree_predecessor(&(tree->locals[global_key]), local_key));
