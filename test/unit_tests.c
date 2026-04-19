@@ -342,6 +342,41 @@ void should_find_predecessor_with_gaps_u4096()
     vebtree_free(tree);
 }
 
+void should_return_null_past_high_u4096()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 12, 0);
+
+    vebtree_insert_key(tree, 5);
+    vebtree_insert_key(tree, 200);
+
+    /* regression guard: successor past tree->high must be null */
+    assert(vebtree_successor(tree, 200) == vebtree_null);
+    assert(vebtree_successor(tree, 201) == vebtree_null);
+    assert(vebtree_successor(tree, 4094) == vebtree_null);
+    assert(vebtree_successor(tree, 4095) == vebtree_null);
+    /* not-over-eager guard: successor just below tree->high must still resolve */
+    assert(vebtree_successor(tree, 199) == 200);
+
+    vebtree_free(tree);
+}
+
+void should_return_null_past_high_u24()
+{
+    VebTree* tree;
+    vebtree_init(&tree, 24, 0);
+
+    vebtree_insert_key(tree, 100);
+    vebtree_insert_key(tree, 100000);
+
+    assert(vebtree_successor(tree, 100000) == vebtree_null);
+    assert(vebtree_successor(tree, 100001) == vebtree_null);
+    assert(vebtree_successor(tree, 16777214) == vebtree_null);
+    assert(vebtree_successor(tree, 99999) == 100000);
+
+    vebtree_free(tree);
+}
+
 void should_find_successor_crossing_low_u4096()
 {
     VebTree* tree;
@@ -599,6 +634,8 @@ int main(int argc, char** argv)
     should_find_predecessor_with_gaps_u4096();
     should_find_successor_crossing_low_u4096();
     should_find_predecessor_crossing_low_u4096();
+    should_return_null_past_high_u4096();
+    should_return_null_past_high_u24();
     should_find_successor_on_singleton_u4096();
     should_find_predecessor_on_singleton_u4096();
     should_handle_two_element_tree_u4096();
