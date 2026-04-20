@@ -239,6 +239,13 @@ int trailing_zeros(bitboard_t bits)
  *        B I T W I S E   L E A F
  * ===================================== */
 
+/* Bitwise leaf for universes of size 2^k, k <= 6. The `low` field is
+   repurposed as a 64-bit bitboard (one bit per key). All ops reduce
+   to O(1) ALU work via bit-scan intrinsics; no subtree allocation.
+   Tied to the memeff root (see `is_memeff_root` below) — each cluster
+   there holds <= 64 keys, exactly what fits in one bitboard. See
+   issue #4 for the full rationale, #17 for the SIMD-widened variant. */
+
 #define VEBTREE_LEAF_BITS 6
 #define vebtree_new_empty_bitwise_leaf(uni_bits) (VebTree){\
     (uni_bits), 0, 0, 0, 0, vebtree_null, NULL, NULL}
@@ -364,7 +371,13 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
         return;
     }
 
-    /* recursion case allocating a tree node */
+    /* recursion case allocating a tree node. At the root only, pin
+       lower_bits to the bitwise-leaf size so every cluster is a leaf
+       (no further recursion per cluster). This is the memeff trick
+       from issue #2: reduces the tower of recursive √u splits to a
+       single flat layer of 2^(u-6) leaves, keeping space O(u) bits
+       when combined with lower_bits ~= log u. Deeper levels inside
+       tree->global still use the textbook √u split. */
     lower_bits = is_memeff_root ? VEBTREE_LEAF_BITS : vebtree_lower_bits(universe_bits);
     *tree = vebtree_new_empty_node(universe_bits, lower_bits, flags);
 
