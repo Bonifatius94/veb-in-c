@@ -45,40 +45,9 @@ vEB over universe `u = 2^k` stores `min` and `max` at the node directly (min is 
 ### How this implementation diverges
 
 - **One `VebTree` struct for both leaves and internal nodes.** Distinguished by `universe_bits <= VEBTREE_LEAF_BITS` (6). Leaves repurpose the `low` field as a 64-bit bitboard and leave `global`/`locals` NULL.
-- **Memory-efficient root** (`is_memeff_root` in `_vebtree_init`): at the root, `lower_bits` is pinned to `VEBTREE_LEAF_BITS = 6`, so the root's locals are always leaves. This avoids the naive √u split blowing up memory at the top. Non-root nodes use `vebtree_lower_bits(u) = u / 2`. Derivation in §Memory model; closed as [#2].
+- **Memory-efficient root** (`is_memeff_root` in `_vebtree_init`): at the root, `lower_bits` is pinned to `VEBTREE_LEAF_BITS = 6`, so the root's locals are always leaves. This avoids the naive √u split blowing up memory at the top. Non-root nodes use `vebtree_lower_bits(u) = u / 2`. Derivation and rationale: run `/theory`.
 - **Bit-scan ops have three backends**: GCC `__builtin_clzll`/`_ctzll`, MSVC `_BitScan{Reverse,Forward}64`, and a portable C fallback for unknown compilers.
-- **Bitwise leaves up to 6 universe bits.** `VEBTREE_LEAF_BITS = 6` is tied to `sizeof(bitboard_t) * 8 = 64`. If you change one, change both. Closed as [#4]; [#17] tracks widening leaves via SIMD.
-
-### Memory model
-
-Two optimizations work together to keep the struct footprint sane on small-to-mid universes. Neither is a textbook vEB — both come from [#2] and [#4].
-
-**1. Memeff root (`is_memeff_root` branch at `_vebtree_init`, vebtrees.h:368).** Textbook vEB splits universe `u = 2^k` into √u clusters of √u each — so at the root, `lower_bits = k/2` and there are `2^(k/2)` cluster slots. That's catastrophic at large `k`: `u=32` gives `2^16` slots whose *cluster structs* are each themselves non-trivial vEB nodes, recurring a handful of levels. Total bits: `O(u log log u)`.
-
-Trick from [#2]: at the root only, pin `lower_bits` to `log u` (in our code: the constant `VEBTREE_LEAF_BITS = 6`). Then:
-- Each local holds ≤ `2^6 = 64` keys — representable as a single bitboard.
-- Number of locals: `2^(k - 6)` — one flat layer, no recursion *inside* clusters.
-- Global summary is a vEB over universe `2^(k - 6)`, recursing normally (√u split) from there.
-
-Storage, per [#2]:
-```
-  locals: 2^(k-6) structs × 48 B each
-  global: O(u / log u × log(u / log u)) bits    = O(u) bits
-```
-The `O(u) bits` bound holds when `lower_bits ≈ log u`. We freeze it at 6 for ALU reasons (see below), so for `u ≥ 32` the `locals` array still explodes — that's the cliff #3's lazy allocation and #19's sparse allocation exist to solve. The root trick shifts the cliff from "impossible at u > ~16" to "impossible at u > ~30", which is the difference between "toy" and "usable on moderate universes."
-
-**2. Bitwise leaves at `u ≤ 6` (vebtrees.h:238–280).** Issue [#2]'s original suggestion was to use binary search trees as the local structure (where each local manages `O(log u)` keys). [#4] replaces that with a 64-bit bitboard plus bit-scan intrinsics (`__builtin_ctzll` / `__builtin_clzll` / MSVC equivalents). All leaf ops — `contains`, `insert`, `delete`, `min`, `max`, `successor`, `predecessor` — become O(1) ALU ops, beating a BST's `O(log log u)` on every dimension: speed, branch-predictability, allocation count (zero per leaf).
-
-Critically: since the memeff root already pins local-size to 6 bits = 64 keys, **every locals slot fits in one bitboard**. The two tricks are mutually reinforcing: memeff root caps cluster size at the ALU word width exactly because bitwise leaves efficiently fill that width. Change either and you need to rethink the other. [#17] proposes widening leaves to 256/512 bits via SIMD — would let memeff root expand to `lower_bits = 8` or `9`, raising the cliff by 2–3 bits of universe without touching sparsity.
-
-**Why this matters for ongoing work on [#3] / [#19].**
-
-- `tree->locals[i]` is always a leaf at the memeff root. That means *sparse cluster storage* (#19's job) only has to map `cluster_idx → one 48 B leaf`, not a recursively-allocated subtree. No deep recursion inside a cluster ever happens at the root layer. This is a huge simplification for the sparse-allocation design.
-- At non-memeff-root layers (the recursion inside `tree->global`), `lower_bits = upper_bits/2`, so clusters there *are* internal nodes. Any sparse design has to handle both — but the leaf-cluster case is the hot path (it's where every key ultimately lives).
-
-[#2]: https://github.com/Bonifatius94/veb-in-c/issues/2
-[#4]: https://github.com/Bonifatius94/veb-in-c/issues/4
-[#17]: https://github.com/Bonifatius94/veb-in-c/issues/17
+- **Bitwise leaves up to 6 universe bits.** `VEBTREE_LEAF_BITS = 6` is tied to `sizeof(bitboard_t) * 8 = 64`. If you change one, change both.
 
 ## Design patterns
 
