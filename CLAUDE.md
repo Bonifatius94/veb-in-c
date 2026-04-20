@@ -82,12 +82,25 @@ vEB over universe `u = 2^k` stores `min` and `max` at the node directly (min is 
 [#19]: https://github.com/Bonifatius94/veb-in-c/issues/19
 [#20]: https://github.com/Bonifatius94/veb-in-c/issues/20
 
-## Build + test loops
+## Skills
 
-- `./build.sh` — clean build + CTest. This is what CI runs. Also available as `/build`.
-- `build/test/SortingBenchmark` — perf numbers. Also available as `/bench`.
-- `./gen-docs.sh` → `vebtree-docs-html.zip`. Also available as `/docs`.
-- Manual: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build && ctest --test-dir build --output-on-failure`.
+Skills live in `.claude/skills/<name>/SKILL.md`. Invoke with `/<name>`. An agent should activate the matching skill proactively when the trigger condition is met — don't wait for the user to type the slash command.
+
+| Skill        | When to activate                                                                                                                                                                  |
+|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/build`     | After any edit to `include/vebtrees.h` or anything under `test/`, or whenever you need to confirm the tree is green. Clean build + CTest.                                          |
+| `/bench`     | After a perf-relevant change to `vebtrees.h` (insert/delete/successor/predecessor hot paths), or when the user asks for a timing number. Runs `SortingBenchmark`.                  |
+| `/docs`      | After a change to the public API or Doxygen comments in `vebtrees.h`, or when the user asks to regenerate the docs website. Produces `vebtree-docs-html.zip`.                       |
+| `/refine`    | When the user hands you a GitHub issue number that's still a raw draft. Produces a refined plan in `./plans/<N>.md` and replaces the issue body with it. **Does not write code.**  |
+| `/implement` | When the user hands you a GitHub issue number whose body is a refined plan. Executes strict red-green-refactor TDD, one commit per phase, on main.                                 |
+| `/theory`    | When making decisions that depend on the memory model (memeff root, bitwise leaves, sparsity, leaf sizing) or when the user asks why `lower_bits` is pinned at 6, why the cliff is where it is, etc. Explanatory — does not write code. |
+| `/next`      | At the end of a work session, especially when stopping mid-task. Produces a self-contained handoff prompt for the next Claude session.                                             |
+
+Manual alternatives to the automation skills:
+- `./build.sh` — what `/build` wraps; also what CI runs.
+- `build/test/SortingBenchmark` — what `/bench` wraps.
+- `./gen-docs.sh` — what `/docs` wraps.
+- `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build && ctest --test-dir build --output-on-failure` — bare equivalent.
 
 ## Workflow for picking up work
 
