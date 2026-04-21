@@ -7,6 +7,8 @@ description: Theoretical background for veb-in-c's design choices — memeff roo
 
 Two optimizations work together to keep the struct footprint sane on small-to-mid universes. Neither is a textbook vEB — both come from [#2] and [#4].
 
+**Scope:** `vebtree_init` is publicly capped at `universe_bits ≤ 32` (IPv4 address space). The recursion and bit-math below still reason in terms of arbitrary `k`, but no realistic `k > 32` use case is supported.
+
 ## 1. Memeff root
 
 **Where:** `is_memeff_root` branch at `_vebtree_init`, vebtrees.h:368.

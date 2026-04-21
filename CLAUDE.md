@@ -18,7 +18,7 @@ Single-header C89 implementation of a van Emde Boas tree. Goals, in order:
 1. Zero dependencies. One header drop-in (`include/vebtrees.h`).
 2. Portable across compilers and architectures (GCC, Clang, MSVC; bit-scan intrinsics with a pure-C fallback).
 3. Competitive performance (~10× faster than `qsort` on dense-key sorting).
-4. **Lazy allocation** so large universes (up to 64-bit) are usable without exhausting RAM. This is the headline unfinished work — see `ROADMAP.md` §1.
+4. **Lazy allocation** so large universes (up to 32-bit, the IPv4 address space) are usable without exhausting RAM. This is the headline unfinished work — see `ROADMAP.md` §1.
 
 Not a general-purpose ordered map. vEB wins on dense integer keys; sparse or string keys belong elsewhere.
 
