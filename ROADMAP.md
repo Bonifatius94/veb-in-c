@@ -4,7 +4,9 @@ Work streams for `veb-in-c`, grouped by theme and priority. GitHub issues at <ht
 
 ## Vision
 
-A single-header, dependency-free vEB tree that you can drop into any C project and use for dense-integer ordered-set workloads — even over large (up to 64-bit) universes, without needing a supercomputer's worth of RAM. The core algorithm already works; the memory story is what's holding the library back from production use.
+A single-header, dependency-free vEB tree that you can drop into any C project and use for dense-integer ordered-set workloads — over universes up to the IPv4 32-bit key space, without needing a supercomputer's worth of RAM. The core algorithm already works; the memory story is what's holding the library back from production use.
+
+A second header (`include/radix64.h`) ships a uniform 64-way radix trie with the same public API. It trades vEB's O(log log u) asymptotic for a shorter, cache-friendlier O(⌈u/6⌉) path and strictly lazy allocation — useful as a baseline on dense workloads and as a drop-in when the vEB memory cliff bites.
 
 ## 1. Memory efficiency (headline)
 
