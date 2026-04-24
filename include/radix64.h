@@ -49,20 +49,31 @@ typedef uint64_t r64key_t;
 /**
  * @brief One node of the radix64 tree.
  *
- * A uniform 64-way node. At an internal node, `bitmap` bit i is set iff
- * `children[i]` is allocated (non-NULL). At a leaf node, bit i is set iff
- * the key encoded by nibble i is present; the `children` array is unused.
+ * Uniform 64-way node. `bitmap` is an occupancy summary for the 64 slots;
+ * the union's interpretation depends on the node's level:
  *
- * All allocation is lazy: a child is calloc'd only on the first insert
- * that traverses its slot, and freed the moment its bitmap goes to zero
- * on delete. sizeof(Radix64Node) == 520 B, so the largest single malloc
- * the structure ever makes is 520 B.
+ *   - At internal levels 0 .. depth - 3: `u.children[i]` points to the
+ *     child subtree for slot i (NULL iff absent; matches bitmap).
+ *   - At level depth - 2 (leaf-parent): `u.leaves[i]` is a 64-bit bitmap
+ *     encoding the final-nibble presence for keys whose leaf-parent
+ *     nibble is i. Leaves are inlined here rather than allocated as
+ *     separate nodes — a 65× RAM win on dense workloads.
+ *   - When depth == 1 (universe fits in 6 bits), the single root node
+ *     stores keys directly in `bitmap` and `u` is unused.
+ *
+ * All allocation is lazy: a node is calloc'd only on the first insert
+ * that traverses it and freed the moment its bitmap clears on delete.
+ * sizeof(Radix64Node) == 520 B.
  */
 typedef struct _RADIX64_NODE {
     uint64_t bitmap;
-    /**< Leaf: keys present. Internal: populated child slots. */
-    struct _RADIX64_NODE* children[64];
-    /**< Unused at the leaf level. NULL slot = not allocated. */
+    /**< Slot-occupancy summary; bit i set iff slot i is populated. */
+    union {
+        struct _RADIX64_NODE* children[64];
+        /**< Internal levels: child pointers, NULL iff slot absent. */
+        uint64_t leaves[64];
+        /**< Leaf-parent level: inline final-nibble bitmaps. */
+    } u;
 } Radix64Node;
 
 /**
@@ -268,18 +279,23 @@ static r64key_t radix64_build_key(const uint8_t* nibbles, uint8_t depth,
  *         F R E E   H E L P E R
  * ===================================== */
 
-static void radix64_free_node(Radix64Node* node, uint8_t levels_below)
+/* `children_levels` counts allocated-child levels beneath this node:
+     depth == 1 → 0 (root is its own leaf, no children)
+     depth >= 2 → depth - 2 at the root (leaf-parents are the last level) */
+static void radix64_free_node(Radix64Node* node, uint8_t children_levels)
 {
     uint64_t bm;
     uint8_t i;
     /* recursion anchor: NULL pointer (lazy subtree) */
     if (node == NULL) return;
-    /* recursion case: internal node — descend into each allocated child */
-    if (levels_below > 0) {
+    /* recursion case: internal node — descend into each allocated child.
+       leaf-parents (children_levels == 0) have no node children to free;
+       their u.leaves[] bitmaps go away with the node itself. */
+    if (children_levels >= 1) {
         bm = node->bitmap;
         while (bm != 0) {
             i = r64_ctz(bm);
-            radix64_free_node(node->children[i], (uint8_t)(levels_below - 1));
+            radix64_free_node(node->u.children[i], (uint8_t)(children_levels - 1));
             bm &= bm - 1;
         }
     }
@@ -304,8 +320,10 @@ void radix64_init(Radix64** out, uint8_t universe_bits)
 
 void radix64_free(Radix64* tree)
 {
+    uint8_t children_levels;
     if (tree == NULL) return;
-    radix64_free_node(tree->root, (uint8_t)(tree->depth - 1));
+    children_levels = (tree->depth >= 2) ? (uint8_t)(tree->depth - 2) : (uint8_t)0;
+    radix64_free_node(tree->root, children_levels);
     free(tree);
 }
 
@@ -319,16 +337,26 @@ bool radix64_contains_key(Radix64* tree, r64key_t key)
     Radix64Node* node;
     uint8_t level;
     uint8_t nibble;
+    uint8_t depth;
+    uint8_t leaf_parent_nibble;
+    uint8_t leaf_nibble;
     assert(key != r64_null && "cannot query r64_null, invalid key!");
     if (tree->root == NULL) return false;
+    depth = tree->depth;
     node = tree->root;
-    for (level = 0; level + 1 < tree->depth; level++) {
-        nibble = radix64_nibble(key, level, tree->depth);
-        if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) return false;
-        node = node->children[nibble];
+    if (depth == 1) {
+        nibble = (uint8_t)(key & 0x3F);
+        return (node->bitmap & ((uint64_t)1 << nibble)) != 0;
     }
-    nibble = radix64_nibble(key, (uint8_t)(tree->depth - 1), tree->depth);
-    return (node->bitmap & ((uint64_t)1 << nibble)) != 0;
+    for (level = 0; level + 2 < depth; level++) {
+        nibble = radix64_nibble(key, level, depth);
+        if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) return false;
+        node = node->u.children[nibble];
+    }
+    leaf_parent_nibble = radix64_nibble(key, (uint8_t)(depth - 2), depth);
+    if ((node->bitmap & ((uint64_t)1 << leaf_parent_nibble)) == 0) return false;
+    leaf_nibble = radix64_nibble(key, (uint8_t)(depth - 1), depth);
+    return (node->u.leaves[leaf_parent_nibble] & ((uint64_t)1 << leaf_nibble)) != 0;
 }
 
 void radix64_insert_key(Radix64* tree, r64key_t key)
@@ -336,21 +364,32 @@ void radix64_insert_key(Radix64* tree, r64key_t key)
     Radix64Node* node;
     uint8_t level;
     uint8_t nibble;
+    uint8_t depth;
+    uint8_t leaf_parent_nibble;
+    uint8_t leaf_nibble;
     assert(key != r64_null && "cannot insert r64_null, invalid key!");
     if (tree->root == NULL) {
         tree->root = (Radix64Node*)calloc(1, sizeof(Radix64Node));
     }
+    depth = tree->depth;
     node = tree->root;
-    for (level = 0; level + 1 < tree->depth; level++) {
-        nibble = radix64_nibble(key, level, tree->depth);
+    if (depth == 1) {
+        nibble = (uint8_t)(key & 0x3F);
         node->bitmap |= (uint64_t)1 << nibble;
-        if (node->children[nibble] == NULL) {
-            node->children[nibble] = (Radix64Node*)calloc(1, sizeof(Radix64Node));
-        }
-        node = node->children[nibble];
+        return;
     }
-    nibble = radix64_nibble(key, (uint8_t)(tree->depth - 1), tree->depth);
-    node->bitmap |= (uint64_t)1 << nibble;
+    for (level = 0; level + 2 < depth; level++) {
+        nibble = radix64_nibble(key, level, depth);
+        node->bitmap |= (uint64_t)1 << nibble;
+        if (node->u.children[nibble] == NULL) {
+            node->u.children[nibble] = (Radix64Node*)calloc(1, sizeof(Radix64Node));
+        }
+        node = node->u.children[nibble];
+    }
+    leaf_parent_nibble = radix64_nibble(key, (uint8_t)(depth - 2), depth);
+    leaf_nibble = radix64_nibble(key, (uint8_t)(depth - 1), depth);
+    node->bitmap |= (uint64_t)1 << leaf_parent_nibble;
+    node->u.leaves[leaf_parent_nibble] |= (uint64_t)1 << leaf_nibble;
 }
 
 void radix64_delete_key(Radix64* tree, r64key_t key)
@@ -360,28 +399,44 @@ void radix64_delete_key(Radix64* tree, r64key_t key)
     Radix64Node* node;
     uint8_t level;
     uint8_t nibble;
+    uint8_t depth;
+    uint8_t leaf_parent_nibble;
+    uint8_t leaf_nibble;
     assert(key != r64_null && "cannot delete r64_null, invalid key!");
     if (tree->root == NULL) return;
+    depth = tree->depth;
     node = tree->root;
-    /* descend, recording path and per-level nibble */
-    for (level = 0; level + 1 < tree->depth; level++) {
-        nibble = radix64_nibble(key, level, tree->depth);
-        path[level] = node;
-        nibbles[level] = nibble;
-        if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) return;
-        node = node->children[nibble];
-    }
-    nibble = radix64_nibble(key, (uint8_t)(tree->depth - 1), tree->depth);
-    path[tree->depth - 1] = node;
-    nibbles[tree->depth - 1] = nibble;
-    if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) return;
-    /* clear the leaf bit, then free empty nodes upward */
-    node->bitmap &= ~((uint64_t)1 << nibble);
-    for (level = (uint8_t)(tree->depth - 1); level > 0; level--) {
-        if (path[level]->bitmap != 0) return;
-        free(path[level]);
-        path[level - 1]->children[nibbles[level - 1]] = NULL;
-        path[level - 1]->bitmap &= ~((uint64_t)1 << nibbles[level - 1]);
+    if (depth == 1) {
+        nibble = (uint8_t)(key & 0x3F);
+        node->bitmap &= ~((uint64_t)1 << nibble);
+    } else {
+        /* descend to leaf-parent, recording path */
+        for (level = 0; level + 2 < depth; level++) {
+            nibble = radix64_nibble(key, level, depth);
+            path[level] = node;
+            nibbles[level] = nibble;
+            if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) return;
+            node = node->u.children[nibble];
+        }
+        /* at leaf-parent (level depth - 2) */
+        leaf_parent_nibble = radix64_nibble(key, (uint8_t)(depth - 2), depth);
+        path[depth - 2] = node;
+        nibbles[depth - 2] = leaf_parent_nibble;
+        if ((node->bitmap & ((uint64_t)1 << leaf_parent_nibble)) == 0) return;
+        leaf_nibble = radix64_nibble(key, (uint8_t)(depth - 1), depth);
+        if ((node->u.leaves[leaf_parent_nibble] & ((uint64_t)1 << leaf_nibble)) == 0) return;
+        /* clear the key bit; if the whole leaf cleared, clear the parent bit */
+        node->u.leaves[leaf_parent_nibble] &= ~((uint64_t)1 << leaf_nibble);
+        if (node->u.leaves[leaf_parent_nibble] == 0) {
+            node->bitmap &= ~((uint64_t)1 << leaf_parent_nibble);
+        }
+        /* ascend: free empty internal nodes */
+        for (level = (uint8_t)(depth - 2); level > 0; level--) {
+            if (path[level]->bitmap != 0) break;
+            free(path[level]);
+            path[level - 1]->u.children[nibbles[level - 1]] = NULL;
+            path[level - 1]->bitmap &= ~((uint64_t)1 << nibbles[level - 1]);
+        }
     }
     if (tree->root != NULL && tree->root->bitmap == 0) {
         free(tree->root);
@@ -389,43 +444,67 @@ void radix64_delete_key(Radix64* tree, r64key_t key)
     }
 }
 
-/* Walk bitmap.ctz from root down; record each chosen nibble; build key. */
+/* Descend leftmost via ctz to leaf-parent, then pick leftmost bit in its
+   leaf bitmap. Handles depth == 1 (root is the leaf) inline. */
 r64key_t radix64_get_min(Radix64* tree)
 {
     Radix64Node* node;
     uint8_t nibbles[R64_MAX_DEPTH];
     uint8_t level;
     uint8_t nibble;
+    uint8_t depth;
+    uint64_t leaf_bm;
     if (tree->root == NULL || tree->root->bitmap == 0) return r64_null;
+    depth = tree->depth;
     node = tree->root;
-    for (level = 0; level < tree->depth; level++) {
+    if (depth == 1) {
+        nibbles[0] = r64_ctz(node->bitmap);
+        return radix64_build_key(nibbles, depth, tree->universe_bits);
+    }
+    for (level = 0; level + 2 < depth; level++) {
         nibble = r64_ctz(node->bitmap);
         nibbles[level] = nibble;
-        if (level + 1 < tree->depth) node = node->children[nibble];
+        node = node->u.children[nibble];
     }
-    return radix64_build_key(nibbles, tree->depth, tree->universe_bits);
+    nibble = r64_ctz(node->bitmap);
+    nibbles[depth - 2] = nibble;
+    leaf_bm = node->u.leaves[nibble];
+    nibbles[depth - 1] = r64_ctz(leaf_bm);
+    return radix64_build_key(nibbles, depth, tree->universe_bits);
 }
 
-/* Symmetric: bitmap.clz from root down (63 - clz = highest set bit). */
 r64key_t radix64_get_max(Radix64* tree)
 {
     Radix64Node* node;
     uint8_t nibbles[R64_MAX_DEPTH];
     uint8_t level;
     uint8_t nibble;
+    uint8_t depth;
+    uint64_t leaf_bm;
     if (tree->root == NULL || tree->root->bitmap == 0) return r64_null;
+    depth = tree->depth;
     node = tree->root;
-    for (level = 0; level < tree->depth; level++) {
+    if (depth == 1) {
+        nibbles[0] = (uint8_t)(63u - r64_clz(node->bitmap));
+        return radix64_build_key(nibbles, depth, tree->universe_bits);
+    }
+    for (level = 0; level + 2 < depth; level++) {
         nibble = (uint8_t)(63u - r64_clz(node->bitmap));
         nibbles[level] = nibble;
-        if (level + 1 < tree->depth) node = node->children[nibble];
+        node = node->u.children[nibble];
     }
-    return radix64_build_key(nibbles, tree->depth, tree->universe_bits);
+    nibble = (uint8_t)(63u - r64_clz(node->bitmap));
+    nibbles[depth - 2] = nibble;
+    leaf_bm = node->u.leaves[nibble];
+    nibbles[depth - 1] = (uint8_t)(63u - r64_clz(leaf_bm));
+    return radix64_build_key(nibbles, depth, tree->universe_bits);
 }
 
-/* Descend leftmost (ctz) from `start_node` at `start_level + 1` down to
-   leaf, filling nibbles[start_level + 1 .. depth - 1]. Caller fills
-   nibbles[start_level] with the chosen nibble beforehand. */
+/* Descend leftmost (ctz) from `start_node` at level `start_level + 1` down
+   to the leaf, filling nibbles[start_level + 1 .. depth - 1]. Caller has
+   already filled nibbles[0 .. start_level]. Only called when start_node
+   is at an internal level (start_level + 1 <= depth - 2); the leaf-parent
+   case at start_level == depth - 2 is handled inline by the caller. */
 static r64key_t radix64_descend_leftmost(Radix64Node* start_node,
                                          uint8_t start_level,
                                          uint8_t* nibbles, uint8_t depth,
@@ -434,12 +513,18 @@ static r64key_t radix64_descend_leftmost(Radix64Node* start_node,
     Radix64Node* node;
     uint8_t level;
     uint8_t nibble;
+    uint64_t leaf_bm;
     node = start_node;
-    for (level = (uint8_t)(start_level + 1); level < depth; level++) {
+    for (level = (uint8_t)(start_level + 1); level + 2 < depth; level++) {
         nibble = r64_ctz(node->bitmap);
         nibbles[level] = nibble;
-        if (level + 1 < depth) node = node->children[nibble];
+        node = node->u.children[nibble];
     }
+    /* node is at leaf-parent (level depth - 2) */
+    nibble = r64_ctz(node->bitmap);
+    nibbles[depth - 2] = nibble;
+    leaf_bm = node->u.leaves[nibble];
+    nibbles[depth - 1] = r64_ctz(leaf_bm);
     return radix64_build_key(nibbles, depth, universe_bits);
 }
 
@@ -452,12 +537,17 @@ static r64key_t radix64_descend_rightmost(Radix64Node* start_node,
     Radix64Node* node;
     uint8_t level;
     uint8_t nibble;
+    uint64_t leaf_bm;
     node = start_node;
-    for (level = (uint8_t)(start_level + 1); level < depth; level++) {
+    for (level = (uint8_t)(start_level + 1); level + 2 < depth; level++) {
         nibble = (uint8_t)(63u - r64_clz(node->bitmap));
         nibbles[level] = nibble;
-        if (level + 1 < depth) node = node->children[nibble];
+        node = node->u.children[nibble];
     }
+    nibble = (uint8_t)(63u - r64_clz(node->bitmap));
+    nibbles[depth - 2] = nibble;
+    leaf_bm = node->u.leaves[nibble];
+    nibbles[depth - 1] = (uint8_t)(63u - r64_clz(leaf_bm));
     return radix64_build_key(nibbles, depth, universe_bits);
 }
 
@@ -471,41 +561,57 @@ r64key_t radix64_successor(Radix64* tree, r64key_t key)
     uint8_t descend_start;
     uint8_t nibble;
     uint8_t next_nibble;
+    uint8_t leaf_parent_nibble;
+    uint8_t leaf_nibble;
     uint64_t mask;
     uint64_t bm;
-    bool descended_to_leaf;
+    uint64_t leaf_bm;
     if (tree->root == NULL || tree->root->bitmap == 0) return r64_null;
     depth = tree->depth;
+    /* depth == 1: root bitmap IS the key set; a single masked ctz suffices. */
+    if (depth == 1) {
+        nibble = (uint8_t)(key & 0x3F);
+        if (nibble < 63) {
+            mask = r64_leading_mask((uint8_t)(nibble + 1));
+            bm = tree->root->bitmap & mask;
+            if (bm != 0) {
+                nibbles[0] = r64_ctz(bm);
+                return radix64_build_key(nibbles, depth, tree->universe_bits);
+            }
+        }
+        return r64_null;
+    }
+    /* depth >= 2: descend internal nodes until leaf-parent or missing slot */
     node = tree->root;
-    descend_start = depth;
-    descended_to_leaf = false;
-    /* walk the key's path as deep as possible */
-    for (level = 0; level < depth; level++) {
+    descend_start = (uint8_t)(depth - 1);  /* sentinel: reached leaf-parent */
+    for (level = 0; level + 2 < depth; level++) {
         path[level] = node;
         nibble = radix64_nibble(key, level, depth);
         nibbles[level] = nibble;
-        if (level + 1 == depth) {
-            descended_to_leaf = true;
-            break;
-        }
         if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) {
             descend_start = level;
             break;
         }
-        node = node->children[nibble];
+        node = node->u.children[nibble];
     }
-    /* if we reached the leaf level, see if a larger bit is set there */
-    if (descended_to_leaf) {
-        nibble = nibbles[depth - 1];
-        if (nibble < 63) {
-            mask = r64_leading_mask((uint8_t)(nibble + 1));
-            bm = path[depth - 1]->bitmap & mask;
-            if (bm != 0) {
-                nibbles[depth - 1] = r64_ctz(bm);
-                return radix64_build_key(nibbles, depth, tree->universe_bits);
+    if (descend_start == (uint8_t)(depth - 1)) {
+        /* at leaf-parent; try to stay within the same leaf first */
+        path[depth - 2] = node;
+        leaf_parent_nibble = radix64_nibble(key, (uint8_t)(depth - 2), depth);
+        nibbles[depth - 2] = leaf_parent_nibble;
+        if (node->bitmap & ((uint64_t)1 << leaf_parent_nibble)) {
+            leaf_nibble = radix64_nibble(key, (uint8_t)(depth - 1), depth);
+            leaf_bm = node->u.leaves[leaf_parent_nibble];
+            if (leaf_nibble < 63) {
+                mask = r64_leading_mask((uint8_t)(leaf_nibble + 1));
+                bm = leaf_bm & mask;
+                if (bm != 0) {
+                    nibbles[depth - 1] = r64_ctz(bm);
+                    return radix64_build_key(nibbles, depth, tree->universe_bits);
+                }
             }
         }
-        descend_start = (uint8_t)(depth - 1);
+        descend_start = (uint8_t)(depth - 2);
     }
     /* ascend: at each recorded level, find a nibble > the one we took */
     for (level = descend_start; ; level--) {
@@ -516,10 +622,13 @@ r64key_t radix64_successor(Radix64* tree, r64key_t key)
             if (bm != 0) {
                 next_nibble = r64_ctz(bm);
                 nibbles[level] = next_nibble;
-                if (level + 1 == depth) {
+                if (level == (uint8_t)(depth - 2)) {
+                    /* sibling leaf at leaf-parent level; take leftmost bit */
+                    leaf_bm = path[level]->u.leaves[next_nibble];
+                    nibbles[depth - 1] = r64_ctz(leaf_bm);
                     return radix64_build_key(nibbles, depth, tree->universe_bits);
                 }
-                return radix64_descend_leftmost(path[level]->children[next_nibble],
+                return radix64_descend_leftmost(path[level]->u.children[next_nibble],
                     level, nibbles, depth, tree->universe_bits);
             }
         }
@@ -537,39 +646,54 @@ r64key_t radix64_predecessor(Radix64* tree, r64key_t key)
     uint8_t descend_start;
     uint8_t nibble;
     uint8_t prev_nibble;
+    uint8_t leaf_parent_nibble;
+    uint8_t leaf_nibble;
     uint64_t mask;
     uint64_t bm;
-    bool descended_to_leaf;
+    uint64_t leaf_bm;
     if (tree->root == NULL || tree->root->bitmap == 0) return r64_null;
     depth = tree->depth;
+    if (depth == 1) {
+        nibble = (uint8_t)(key & 0x3F);
+        if (nibble > 0) {
+            mask = r64_trailing_mask(nibble);
+            bm = tree->root->bitmap & mask;
+            if (bm != 0) {
+                nibbles[0] = (uint8_t)(63u - r64_clz(bm));
+                return radix64_build_key(nibbles, depth, tree->universe_bits);
+            }
+        }
+        return r64_null;
+    }
     node = tree->root;
-    descend_start = depth;
-    descended_to_leaf = false;
-    for (level = 0; level < depth; level++) {
+    descend_start = (uint8_t)(depth - 1);
+    for (level = 0; level + 2 < depth; level++) {
         path[level] = node;
         nibble = radix64_nibble(key, level, depth);
         nibbles[level] = nibble;
-        if (level + 1 == depth) {
-            descended_to_leaf = true;
-            break;
-        }
         if ((node->bitmap & ((uint64_t)1 << nibble)) == 0) {
             descend_start = level;
             break;
         }
-        node = node->children[nibble];
+        node = node->u.children[nibble];
     }
-    if (descended_to_leaf) {
-        nibble = nibbles[depth - 1];
-        if (nibble > 0) {
-            mask = r64_trailing_mask(nibble);
-            bm = path[depth - 1]->bitmap & mask;
-            if (bm != 0) {
-                nibbles[depth - 1] = (uint8_t)(63u - r64_clz(bm));
-                return radix64_build_key(nibbles, depth, tree->universe_bits);
+    if (descend_start == (uint8_t)(depth - 1)) {
+        path[depth - 2] = node;
+        leaf_parent_nibble = radix64_nibble(key, (uint8_t)(depth - 2), depth);
+        nibbles[depth - 2] = leaf_parent_nibble;
+        if (node->bitmap & ((uint64_t)1 << leaf_parent_nibble)) {
+            leaf_nibble = radix64_nibble(key, (uint8_t)(depth - 1), depth);
+            leaf_bm = node->u.leaves[leaf_parent_nibble];
+            if (leaf_nibble > 0) {
+                mask = r64_trailing_mask(leaf_nibble);
+                bm = leaf_bm & mask;
+                if (bm != 0) {
+                    nibbles[depth - 1] = (uint8_t)(63u - r64_clz(bm));
+                    return radix64_build_key(nibbles, depth, tree->universe_bits);
+                }
             }
         }
-        descend_start = (uint8_t)(depth - 1);
+        descend_start = (uint8_t)(depth - 2);
     }
     for (level = descend_start; ; level--) {
         nibble = nibbles[level];
@@ -579,10 +703,12 @@ r64key_t radix64_predecessor(Radix64* tree, r64key_t key)
             if (bm != 0) {
                 prev_nibble = (uint8_t)(63u - r64_clz(bm));
                 nibbles[level] = prev_nibble;
-                if (level + 1 == depth) {
+                if (level == (uint8_t)(depth - 2)) {
+                    leaf_bm = path[level]->u.leaves[prev_nibble];
+                    nibbles[depth - 1] = (uint8_t)(63u - r64_clz(leaf_bm));
                     return radix64_build_key(nibbles, depth, tree->universe_bits);
                 }
-                return radix64_descend_rightmost(path[level]->children[prev_nibble],
+                return radix64_descend_rightmost(path[level]->u.children[prev_nibble],
                     level, nibbles, depth, tree->universe_bits);
             }
         }
