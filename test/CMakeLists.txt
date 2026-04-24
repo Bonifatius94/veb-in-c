@@ -1,6 +1,9 @@
 add_executable(UnitTests unit_tests.c)
 target_include_directories(UnitTests PRIVATE ../include)
 
+add_executable(RadixUnitTests radix_unit_tests.c)
+target_include_directories(RadixUnitTests PRIVATE ../include)
+
 add_executable(SortingBenchmark sorting_benchmark.c)
 target_include_directories(SortingBenchmark PRIVATE ../include)
 
@@ -21,4 +24,6 @@ endif()
 # asserts inside vebtree_insert_key / vebtree_predecessor / ... land
 # inside the timed inner loop and skew the measurement.
 target_compile_options(UnitTests PRIVATE
+    $<IF:$<C_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
+target_compile_options(RadixUnitTests PRIVATE
     $<IF:$<C_COMPILER_ID:MSVC>,/UNDEBUG,-UNDEBUG>)
