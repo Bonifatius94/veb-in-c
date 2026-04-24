@@ -5,6 +5,7 @@
 #include <time.h>
 #include <string.h>
 #include "vebtrees.h"
+#include "radix64.h"
 
 /* ====================================================
  *         V A N   E M D E   B O A S   S O R T
@@ -43,6 +44,44 @@ void sort_veb_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
         output[i - 1] = vebtree_predecessor(tree, output[i]);
 
     vebtree_free(tree);
+}
+
+/* ====================================================
+ *              R A D I X   6 4   S O R T
+ * ==================================================== */
+
+void sort_radix_succ(const uint64_t keys[], size_t num_keys, uint64_t output[])
+{
+    size_t i; Radix64* tree; uint8_t uni_bits;
+
+    uni_bits = radix64_required_universe_bits((r64key_t)(num_keys - 1));
+    radix64_init(&tree, uni_bits);
+
+    for (i = 0; i < num_keys; i++)
+        radix64_insert_key(tree, (r64key_t)keys[i]);
+
+    output[0] = radix64_get_min(tree);
+    for (i = 1; i < num_keys; i++)
+        output[i] = radix64_successor(tree, output[i - 1]);
+
+    radix64_free(tree);
+}
+
+void sort_radix_pred(const uint64_t keys[], size_t num_keys, uint64_t output[])
+{
+    size_t i; Radix64* tree; uint8_t uni_bits;
+
+    uni_bits = radix64_required_universe_bits((r64key_t)(num_keys - 1));
+    radix64_init(&tree, uni_bits);
+
+    for (i = 0; i < num_keys; i++)
+        radix64_insert_key(tree, (r64key_t)keys[i]);
+
+    output[num_keys - 1] = radix64_get_max(tree);
+    for (i = num_keys - 1; i > 0; i--)
+        output[i - 1] = radix64_predecessor(tree, output[i]);
+
+    radix64_free(tree);
 }
 
 /* ====================================================
@@ -131,6 +170,12 @@ int main(int argc, char** argv)
 
     printf("Veb sorting (predecessor) took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&sort_veb_pred, num_keys, test_runs));
+
+    printf("Radix64 sorting (successor) took %lf milliseconds\n",
+           benchmark_sort_algo_in_ms(&sort_radix_succ, num_keys, test_runs));
+
+    printf("Radix64 sorting (predecessor) took %lf milliseconds\n",
+           benchmark_sort_algo_in_ms(&sort_radix_pred, num_keys, test_runs));
 
     printf("Quicksort took %lf milliseconds\n",
            benchmark_sort_algo_in_ms(&quick_sort, num_keys, test_runs));
