@@ -592,13 +592,8 @@ r64key_t radix64_predecessor(Radix64* tree, r64key_t key)
 
 uint8_t radix64_required_universe_bits(r64key_t max_key)
 {
-    uint64_t x;
-    uint8_t bits;
     assert(max_key != 0 && "universe has to consist of at least 2 keys");
-    x = (uint64_t)max_key;
-    bits = 0;
-    while (x != 0) { x >>= 1; bits++; }
-    return bits;
+    return (uint8_t)(64u - r64_clz((uint64_t)max_key));
 }
 
 #endif /* DOXYGEN_SKIP */
