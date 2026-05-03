@@ -18,19 +18,21 @@ Single-header C89 implementation of a van Emde Boas tree. Goals, in order:
 1. Zero dependencies. One header drop-in (`include/vebtrees.h`).
 2. Portable across compilers and architectures (GCC, Clang, MSVC; bit-scan intrinsics with a pure-C fallback).
 3. Competitive performance (~10× faster than `qsort` on dense-key sorting).
-4. **Lazy allocation** so large universes (up to 64-bit) are usable without exhausting RAM. This is the headline unfinished work — see `ROADMAP.md` §1.
+4. **Lazy allocation** so large universes (up to 32-bit, the IPv4 address space) are usable without exhausting RAM. This is the headline unfinished work — see `ROADMAP.md` §1.
 
 Not a general-purpose ordered map. vEB wins on dense integer keys; sparse or string keys belong elsewhere.
 
 ## Codebase layout
 
 ```
-include/vebtrees.h          the whole library (public API + impl)
-test/unit_tests.c           property tests across u = 6, 7, 12, 13, 24 (plus leaf-level)
-test/sorting_benchmark.c    vEB-sort vs qsort on 500k dense keys
+include/vebtrees.h          vEB tree (public API + impl, u ≤ 32)
+include/radix64.h           uniform 64-way radix trie, API-compatible peer (u ≤ 32)
+test/unit_tests.c           vEB property tests across u = 6, 7, 12, 13, 24 (plus leaf-level)
+test/radix_unit_tests.c     radix64 property tests across u = 1, 6, 16, 19, 24, 32
+test/sorting_benchmark.c    vEB-sort + radix64-sort vs qsort on 500k dense keys
 test/lazy_memory_probe.c    Windows-only RSS probe for lazy init (psapi)
-test/CMakeLists.txt         targets: UnitTests, SortingBenchmark, LazyMemoryProbe (WIN32-gated)
-CMakeLists.txt              registers UnitTests + SortingBenchmark with CTest
+test/CMakeLists.txt         targets: UnitTests, RadixUnitTests, SortingBenchmark, LazyMemoryProbe (WIN32-gated)
+CMakeLists.txt              registers UnitTests + RadixUnitTests + SortingBenchmark with CTest
 build.sh                    clean + configure + build + ctest (what CI runs)
 gen-docs.sh                 Doxygen → vebtree-docs-html.zip
 .github/workflows/cicd.yaml Build+Test on push/PR (Ubuntu, gcc)
@@ -48,6 +50,10 @@ vEB over universe `u = 2^k` stores `min` and `max` at the node directly (min is 
 - **Memory-efficient root** (`is_memeff_root` in `_vebtree_init`): at the root, `lower_bits` is pinned to `VEBTREE_LEAF_BITS = 6`, so the root's locals are always leaves. This avoids the naive √u split blowing up memory at the top. Non-root nodes use `vebtree_lower_bits(u) = u / 2`. Derivation and rationale: run `/theory`.
 - **Bit-scan ops have three backends**: GCC `__builtin_clzll`/`_ctzll`, MSVC `_BitScan{Reverse,Forward}64`, and a portable C fallback for unknown compilers.
 - **Bitwise leaves up to 6 universe bits.** `VEBTREE_LEAF_BITS = 6` is tied to `sizeof(bitboard_t) * 8 = 64`. If you change one, change both.
+
+### radix64 (peer implementation)
+
+`include/radix64.h` is a separate single-header library with the same public-API shape (`radix64_init`, `radix64_insert_key`, `radix64_successor`, …). It stores keys in a uniform 64-way radix trie of depth `⌈universe_bits / 6⌉`, with a `uint64_t` bitmap at every node summarizing which slots are populated. Nibble extraction is `(key >> ((depth-1-level) * 6)) & 0x3F`; the top level gets the leftover `universe_bits - (depth-1)*6` bits and the rest are full 6-bit slices. Allocation is strictly lazy: `tree->root = NULL` until the first insert, nodes are `calloc`'d on descent, and nodes with bitmap == 0 are freed on the delete ascent. `R64_MAX_DEPTH = 8` sizes the path stacks (real max depth at `u = 32` is 6). Successor/predecessor descend recording the path, then ascend checking for a sibling bit `> nibble` (or `<` for predecessor) in each level's bitmap, then descend leftmost/rightmost via `ctz`/`clz`.
 
 ## Design patterns
 

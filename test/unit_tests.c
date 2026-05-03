@@ -758,6 +758,7 @@ void should_compute_required_universe_bits()
     assert(vebtree_required_universe_bits(8) == 4);
     assert(vebtree_required_universe_bits(255) == 8);
     assert(vebtree_required_universe_bits(256) == 9);
+    /* values > 32 are no longer supported by vebtree_init; retained here as math-helper coverage */
     assert(vebtree_required_universe_bits((vebkey_t)0x7FFFFFFFFFFFFFFF) == 63);
     assert(vebtree_required_universe_bits(vebtree_null) == 64);
 }

@@ -8,6 +8,50 @@ Benchmarks show that it's really efficient, e.g. sorting is ~ 10x faster than st
 It's a small, standalone, single-header implementation, not relying on any external dependencies,
 highly portable to any operating system or processor architecture of choice.
 
+A second header [`include/radix64.h`](./include/radix64.h) ships a uniform 64-way radix trie
+with the same public API shape (`radix64_init`, `radix64_insert_key`, `radix64_successor`, …).
+It trades vEB's O(log log u) asymptotic for a shorter, cache-friendlier O(⌈u/6⌉) path and
+**strictly lazy allocation** — useful as a baseline on dense workloads and as a drop-in when
+the vEB memory cliff bites at large universes. Both implementations are exercised side by
+side in `SortingBenchmark`.
+
+## Hardware Requirements
+
+The default benchmarks and tests are sized to be safe on any modern laptop, but the vEB
+implementation has a known memory cliff that's easy to trip when experimenting at large
+universes. Read this before raising `universe_bits`.
+
+**Why vEB has a cliff.** The second distinct key inserted into a vEB tree of universe
+`u` triggers a single `malloc` of `2^(u-6) × 48 B` for the cluster array — driven by the
+universe size, not the number of keys actually stored. The table below is computed
+directly from that formula (it is the dominant allocation, not measured RSS):
+
+| `universe_bits` | vEB cluster malloc (`2^(u-6) × 48 B`) | Notes |
+|-----------------|----------------------------------------|-------|
+| 19 (dense default benchmark)  | 384 KB   | trivial |
+| 24 (sparse default benchmark) | 12 MB    | trivial |
+| 28                            | 192 MB   | needs ≥ 4 GB free |
+| 30                            | 768 MB   | needs ≥ 8 GB free |
+| 32                            | 3 GB     | **single malloc may fail; see [#20]** |
+
+Lazy/sparse allocation is the headline unfinished work — see [`ROADMAP.md`](./ROADMAP.md) §1
+and issues [#19] / [#20].
+
+**radix64 has no such cliff.** Allocation is strictly lazy and proportional to the number
+of distinct keys actually inserted; nodes are `calloc`'d on descent and freed back on the
+delete ascent when their bitmap empties. If you want to experiment near `u = 32`, prefer
+`radix64`.
+
+**Rules of thumb.**
+- Stay at `u ≤ 24` for vEB unless you've checked the math above against your free RAM.
+- Don't run `vebtree_init(u = 32, …)` followed by a second insert on a low-RAM machine. It
+  will either OOM or hit the per-chunk malloc cap and crash.
+- The shipped tests and benchmarks stay in the "trivial" rows above — they're safe out of
+  the box.
+
+[#19]: https://github.com/Bonifatius94/veb-in-c/issues/19
+[#20]: https://github.com/Bonifatius94/veb-in-c/issues/20
+
 ## Build Toolchain Setup
 First, you need to install a minimalistic C compiler toolchain for building the source code.
 Additionally, there are a few more packages to generate the Doxygen website (optional).
@@ -54,24 +98,44 @@ benchmarks to ensure that the van Emde Boas tree is working as expected.
 ```
 
 ## Benchmark
-For benchmarking, 500k dense indices need to be sorted. The stdlib.h qsort() function
-is compared to a sorting procedure using a Veb tree. First, all keys are inserted
-into the tree. Then the sorting procedure looks up the smallest key and finds successors
-until the highest key is reached. For fairness, the benchmark includes building up the tree.
+The `SortingBenchmark` target compares three sorters on two workloads:
+
+- **Dense**: 500k keys, universe `u = 19` (a permutation of `[0, 500k)`).
+- **Sparse**: 100k distinct keys drawn from a `u = 24` universe (~ 0.6% density)
+  via a coprime multiplicative hash.
+
+For each workload the harness builds up the tree, then walks it via successor (and
+also predecessor for vEB) until the largest key is reached. Tree construction is
+included in the timing for fairness against `qsort`.
 
 ```sh
 build/test/SortingBenchmark
 ```
 
-Results show that sorting dense indices can be carried out very efficiently with Veb trees.
-In fact, the practical performance improves by a quite significant factor of 10x.
+Results show that sorting dense indices can be carried out very efficiently with both
+vEB and radix64 — roughly a 10× speedup over `qsort` on the dense workload. On the
+sparse workload radix64 takes the lead while vEB and `qsort` end up close together.
 
 ```text
-Sorting Benchmark (500k keys)
-=============================
-Veb sorting took 5.796520 milliseconds
-Quicksort took 59.823940 milliseconds
+=== DENSE: 500000 keys, universe_bits=19 ===
+  Veb sorting (successor)       took 4.140000 ms
+  Veb sorting (predecessor)     took 4.330000 ms
+  Radix64 sorting (successor)   took 4.140000 ms
+  Radix64 sorting (predecessor) took 4.320000 ms
+  Quicksort                     took 39.060000 ms
+=== SPARSE: 100000 keys, universe_bits=24 ===
+  Veb sorting (successor)       took 4.910000 ms
+  Veb sorting (predecessor)     took 4.910000 ms
+  Radix64 sorting (successor)   took 1.820000 ms
+  Radix64 sorting (predecessor) took 2.010000 ms
+  Quicksort                     took 7.520000 ms
 ```
+
+> **Test machine.** Numbers above were collected on:
+> AMD Ryzen 9 9900X (12C / 24T), 64 GB RAM, Windows 11 Pro 26200, MSVC Release build.
+> Three back-to-back runs were within ±5%; the run shown is representative. Your
+> numbers will vary by CPU, compiler, and build flags — run `build/test/SortingBenchmark`
+> locally for your own.
 
 ## Doxygen Documentation
 If you like to generate the documentation website, run the gen-docs script.
@@ -90,8 +154,14 @@ firefox index.html
 ```
 
 ## Deployment into Projects
-Just copy the [vebtrees.h](./include/vebtrees.h) file into your project's include directory.
-As already mentioned, the code is standalone, single-header, pure C89, no crazy dependencies.
+Just copy the [vebtrees.h](./include/vebtrees.h) file (or [radix64.h](./include/radix64.h),
+or both) into your project's include directory. As already mentioned, the code is standalone,
+single-header, pure C89, no crazy dependencies.
+
+Pick the implementation by workload:
+- **`vebtrees.h`** — best raw throughput on dense integer keys with `u ≤ 24`.
+- **`radix64.h`** — strictly lazy memory; safe choice when the universe is large
+  (`u` near 32) or sparsely populated.
 
 ## License
 This project is available under the terms of the MIT license.

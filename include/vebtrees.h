@@ -350,8 +350,8 @@ void _vebtree_init(VebTree* tree, uint8_t universe_bits, uint8_t flags, bool is_
 
 void vebtree_init(VebTree** new_tree, uint8_t universe_bits, uint8_t flags)
 {
-    assert((universe_bits > 0 && universe_bits <= 64)
-        && "invalid amount of universe bits, needs to be within [1, 64].");
+    assert((universe_bits > 0 && universe_bits <= 32)
+        && "invalid amount of universe bits, needs to be within [1, 32].");
 
     /* allocate memory for the first tree */
     *new_tree = (VebTree*)malloc(sizeof(VebTree));

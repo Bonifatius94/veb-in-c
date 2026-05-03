@@ -48,8 +48,6 @@ int main(void)
     lazy_init_only(24);
     lazy_init_only(28);
     lazy_init_only(32);
-    lazy_init_only(40);
-    lazy_init_only(64);
 
     /* Control: non-lazy at u=24 (safe at ~12.5 MB) */
     nonlazy_init_only(24);
