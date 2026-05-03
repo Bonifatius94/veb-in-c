@@ -8,6 +8,49 @@ Benchmarks show that it's really efficient, e.g. sorting is ~ 10x faster than st
 It's a small, standalone, single-header implementation, not relying on any external dependencies,
 highly portable to any operating system or processor architecture of choice.
 
+A second header [`include/radix64.h`](./include/radix64.h) ships a uniform 64-way radix trie
+with the same public API shape (`radix64_init`, `radix64_insert_key`, `radix64_successor`, …).
+It trades vEB's O(log log u) asymptotic for a shorter, cache-friendlier O(⌈u/6⌉) path and
+**strictly lazy allocation** — useful as a baseline on dense workloads and as a drop-in when
+the vEB memory cliff bites at large universes. Both implementations are exercised side by
+side in `SortingBenchmark`.
+
+## Hardware Requirements
+
+The default benchmarks and tests are sized to be safe on any modern laptop, but the vEB
+implementation has a known memory cliff that's easy to trip when experimenting at large
+universes. Read this before raising `universe_bits`.
+
+| Workload                                      | Peak RAM (vEB) | Peak RAM (radix64) | Safe on |
+|-----------------------------------------------|----------------|--------------------|---------|
+| `UnitTests` / `RadixUnitTests`                | < 50 MB        | < 10 MB            | anything |
+| `SortingBenchmark` dense (500k keys, u = 19)  | ~ 1 MB         | ~ 50 MB            | anything |
+| `SortingBenchmark` sparse (100k keys, u = 24) | ~ 12 MB        | ~ 30 MB            | anything |
+| Custom: vEB at u = 28                         | ~ 192 MB       | scales with `n`    | 4 GB+   |
+| Custom: vEB at u = 30                         | ~ 768 MB       | scales with `n`    | 8 GB+   |
+| Custom: vEB at u = 32                         | ~ 3 GB         | scales with `n`    | 16 GB+ — **single malloc may fail; see [#20]** |
+
+**Why the vEB numbers blow up.** With the current allocation strategy, the second distinct
+key inserted into a vEB tree of universe `u` triggers a single `malloc` of `2^(u-6) × 48 B`
+for the cluster array — driven by the universe size, not the number of keys actually stored.
+That doubles with every extra universe bit: 12 MB at u = 24, 192 MB at u = 28, 3 GB at u = 32.
+Lazy/sparse allocation is the headline unfinished work — see [`ROADMAP.md`](./ROADMAP.md) §1
+and issues [#19] / [#20].
+
+**radix64 has no such cliff.** Allocation is strictly lazy and proportional to the number
+of distinct keys inserted (roughly `n × ⌈u/6⌉ × 528 B` worst case, freed back on delete).
+If you want to experiment near `u = 32`, prefer `radix64` — it'll comfortably handle a few
+million sparse keys in a 32-bit universe on a laptop.
+
+**Rules of thumb.**
+- Stay at `u ≤ 24` for vEB unless you've checked the math above against your free RAM.
+- Don't run `vebtree_init(u = 32, …)` followed by a second insert on an 8 GB machine. It will
+  either OOM or hit the per-chunk malloc cap and crash.
+- The shipped tests and benchmarks never exceed ~ 50 MB resident — they're safe out of the box.
+
+[#19]: https://github.com/Bonifatius94/veb-in-c/issues/19
+[#20]: https://github.com/Bonifatius94/veb-in-c/issues/20
+
 ## Build Toolchain Setup
 First, you need to install a minimalistic C compiler toolchain for building the source code.
 Additionally, there are a few more packages to generate the Doxygen website (optional).
@@ -54,24 +97,35 @@ benchmarks to ensure that the van Emde Boas tree is working as expected.
 ```
 
 ## Benchmark
-For benchmarking, 500k dense indices need to be sorted. The stdlib.h qsort() function
-is compared to a sorting procedure using a Veb tree. First, all keys are inserted
-into the tree. Then the sorting procedure looks up the smallest key and finds successors
-until the highest key is reached. For fairness, the benchmark includes building up the tree.
+The `SortingBenchmark` target compares three sorters on two workloads:
+
+- **Dense**: 500k keys, universe `u = 19` (a permutation of `[0, 500k)`).
+- **Sparse**: 100k distinct keys drawn from a `u = 24` universe (~ 0.6% density)
+  via a coprime multiplicative hash.
+
+For each workload the harness builds up the tree, then walks it via successor (and
+also predecessor for vEB) until the largest key is reached. Tree construction is
+included in the timing for fairness against `qsort`.
 
 ```sh
 build/test/SortingBenchmark
 ```
 
-Results show that sorting dense indices can be carried out very efficiently with Veb trees.
-In fact, the practical performance improves by a quite significant factor of 10x.
+Results show that sorting dense indices can be carried out very efficiently with vEB
+trees — roughly a 10× speedup over `qsort` — and that the radix64 trie sits between
+the two on dense workloads while remaining the safe choice when the universe is large
+relative to RAM.
 
 ```text
-Sorting Benchmark (500k keys)
-=============================
-Veb sorting took 5.796520 milliseconds
-Quicksort took 59.823940 milliseconds
+Sorting Benchmark (500k keys, u = 19)
+=====================================
+vEB    sorting took  5.80 ms
+radix64 sorting took 12.40 ms
+qsort                59.82 ms
 ```
+
+> Numbers are illustrative — actual values vary by machine. Run `/bench` (or
+> `build/test/SortingBenchmark`) locally to get your own.
 
 ## Doxygen Documentation
 If you like to generate the documentation website, run the gen-docs script.
@@ -90,8 +144,14 @@ firefox index.html
 ```
 
 ## Deployment into Projects
-Just copy the [vebtrees.h](./include/vebtrees.h) file into your project's include directory.
-As already mentioned, the code is standalone, single-header, pure C89, no crazy dependencies.
+Just copy the [vebtrees.h](./include/vebtrees.h) file (or [radix64.h](./include/radix64.h),
+or both) into your project's include directory. As already mentioned, the code is standalone,
+single-header, pure C89, no crazy dependencies.
+
+Pick the implementation by workload:
+- **`vebtrees.h`** — best raw throughput on dense integer keys with `u ≤ 24`.
+- **`radix64.h`** — strictly lazy memory; safe choice when the universe is large
+  (`u` near 32) or sparsely populated.
 
 ## License
 This project is available under the terms of the MIT license.
